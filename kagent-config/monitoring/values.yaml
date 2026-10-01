@@ -1,0 +1,147 @@
+# kube-prometheus-stack Helm Values
+# 监控 kagent 集群
+
+# ============================================================
+# Prometheus 配置
+# ============================================================
+prometheus:
+  prometheusSpec:
+    # 监控所有命名空间
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    
+    # 存储配置 - PVC 持久化（重启不丢数据）
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+          # storageClassName: local-path  # 如需指定，取消注释
+    
+    # 资源限制
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+    
+    # 保留时间
+    retention: 15d
+    
+    # 额外抓取配置 - 监控 kagent
+    additionalScrapeConfigs:
+      - job_name: 'kagent-controller'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - kagent
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            regex: kagent-controller
+            action: keep
+          - source_labels:
+              - __meta_kubernetes_pod_ip
+              - __meta_kubernetes_pod_annotation_prometheus_io_port
+            action: replace
+            target_label: __address__
+            regex: (.+)
+            replacement: ${1}:${2}
+
+# ============================================================
+# Grafana 配置
+# ============================================================
+grafana:
+  enabled: true
+  
+  # 访问方式
+  service:
+    type: NodePort
+    nodePort: 31080
+  
+  # 默认账号密码
+  adminUser: admin
+  adminPassword: admin
+  
+  # 数据源和 Dashboard 自动配置
+  sidecar:
+    datasources:
+      enabled: true
+      defaultDatasourceEnabled: true
+    dashboards:
+      enabled: true
+      defaultDatasourceEnabled: true
+      searchNamespace: ALL
+      label: grafana_dashboard
+      folderAnnotation: grafana_folder
+  
+  # Grafana 配置
+  grafana.ini:
+    server:
+      root_url: http://localhost:31080
+    auth.anonymous:
+      enabled: true
+      org_role: Viewer
+    date_formats:
+      default_timezone: Asia/Shanghai
+  
+  # 资源限制
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ============================================================
+# Node Exporter - 监控节点指标（本地环境禁用）
+# ============================================================
+nodeExporter:
+  enabled: false
+
+# ============================================================
+# Kube State Metrics - 监控 K8s 对象状态
+# ============================================================
+kubeStateMetrics:
+  enabled: true
+
+# ============================================================
+# 告警管理器（可选）
+# ============================================================
+alertmanager:
+  enabled: false  # 暂时禁用，需要时再启用
+
+# ============================================================
+# API Server（禁用 - 本地 K3s 自签证书导致抓取失败）
+# ============================================================
+kubeAPIServer:
+  enabled: false
+
+# ============================================================
+# 其他组件
+# ============================================================
+kubelet:
+  enabled: true
+
+kubeControllerManager:
+  enabled: true
+
+kubeScheduler:
+  enabled: true
+
+kubeProxy:
+  enabled: true
+
+kubeEtcd:
+  enabled: true
+
+# ============================================================
+# 命名空间
+# ============================================================
+namespaceOverride: monitoring

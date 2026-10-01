@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zk
+  namespace: sre-demo
+  labels:
+    app: zookeeper
+spec:
+  serviceName: zk-headless
+  replicas: 5
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: zookeeper
+          image: zookeeper:3.8.4
+          ports:
+            - containerPort: 2181
+              name: client
+            - containerPort: 2888
+              name: follower
+            - containerPort: 3888
+              name: election
+          command:
+            - /bin/bash
+            - /config/setup.sh
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: datalog
+              mountPath: /datalog
+            - name: config
+              mountPath: /config
+            - name: zk-config
+              mountPath: /conf/zoo.cfg
+              subPath: zoo.cfg
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - echo ruok | nc localhost 2181 | grep imok
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - echo ruok | nc localhost 2181 | grep imok
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+          startupProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - echo ruok | nc localhost 2181 | grep imok
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 30
+      volumes:
+        - name: config
+          configMap:
+            name: zk-config
+            defaultMode: 0755
+        - name: zk-config
+          configMap:
+            name: zk-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+    - metadata:
+        name: datalog
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

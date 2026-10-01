@@ -1,0 +1,114 @@
+# kagent Helm Values 配置
+# 文档: https://www.kagent.dev/docs/kagent/resources/helm
+#
+# helm upgrade --install kagent oci://ghcr.io/kagent-dev/kagent/helm/kagent \
+#   -n kagent --create-namespace --version 0.10.1 --values kagent-config/helm/values.yaml
+
+fullnameOverride: kagent
+
+# ============================================================
+# LLM Provider - DeepSeek (通过 OpenAI 兼容接口)
+# ============================================================
+providers:
+  default: openAI
+
+  openAI:
+    provider: OpenAI
+    model: "deepseek-flash"
+    apiKeySecretRef: kagent-deepseek
+    apiKeySecretKey: DEEPSEEK_API_KEY
+    config:
+      baseUrl: "https://api.deepseek.com/v1"
+
+# ============================================================
+# Controller
+# ============================================================
+controller:
+  replicas: 1
+  loglevel: info
+  auth:
+    mode: unsecure
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# ============================================================
+# UI
+# ============================================================
+ui:
+  enabled: true
+  service:
+    type: NodePort
+    ports:
+      port: 8080
+
+# ============================================================
+# Database (内置 PostgreSQL + PVC 持久化)
+# ============================================================
+database:
+  postgres:
+    url: ""
+    bundled:
+      enabled: true
+      image:
+        tag: "18.6-alpine3.23"
+      # PVC 持久化存储 — scale to 0 后数据不丢失
+      # local-path StorageClass 不支持扩容，保持与初始安装一致
+      storage: 500Mi
+      storageClassName: ""   # 使用集群默认 StorageClass
+
+# ============================================================
+# 内置 Agents 开关（注意：根级别配置，非嵌套在 agents 下）
+# ============================================================
+k8s-agent:
+  enabled: true
+
+promql-agent:
+  enabled: true
+
+helm-agent:
+  enabled: true
+
+observability-agent:
+  enabled: true
+
+# 以下 Agent 暂时禁用
+
+istio-agent:
+  enabled: false
+
+argo-rollouts-agent:
+  enabled: false
+
+cilium-debug-agent:
+  enabled: false
+
+cilium-manager-agent:
+  enabled: false
+
+cilium-policy-agent:
+  enabled: false
+
+kgateway-agent:
+  enabled: false
+
+# ============================================================
+# MCP & Tools
+# ============================================================
+kmcp:
+  enabled: true
+kagent-tools:
+  enabled: true
+
+# Grafana MCP - 启用（连接本地 Grafana）
+grafana-mcp:
+  enabled: true
+  grafana:
+    url: "http://monitoring-grafana.monitoring:80"
+  args:
+    - "-allowed-hosts"
+    - "kagent-grafana-mcp.kagent:8000,kagent-grafana-mcp.kagent,localhost:8000"

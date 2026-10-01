@@ -1,0 +1,16 @@
+# ModelConfig - DeepSeek
+# kubectl apply -f kagent-config/crds/
+
+---
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  name: default-model-config
+  namespace: kagent
+spec:
+  provider: OpenAI
+  model: "deepseek-flash"
+  apiKeySecret: "kagent-deepseek"
+  apiKeySecretKey: "DEEPSEEK_API_KEY"
+  openAI:
+    baseUrl: "https://api.deepseek.com/v1"

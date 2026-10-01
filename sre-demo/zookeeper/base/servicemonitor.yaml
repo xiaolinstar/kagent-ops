@@ -1,0 +1,21 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: zookeeper
+  namespace: sre-demo
+  labels:
+    app: zookeeper
+    release: monitoring  # 匹配 Prometheus Operator 的选择器
+spec:
+  namespaceSelector:
+    matchNames:
+      - sre-demo
+  selector:
+    matchLabels:
+      app: zookeeper
+      metrics: prometheus
+  endpoints:
+    - port: metrics
+      interval: 15s
+      path: /metrics
+      honorLabels: true
