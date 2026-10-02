@@ -30,6 +30,7 @@ kagent-ops/
 ├── .env                            # API Key（不提交到 git）
 ├── .gitignore
 ├── README.md                       # 项目主文档
+├── CLAUDE.md                       # AI 协作说明
 ├── kagent-config/
 │   ├── helm/
 │   │   └── values.yaml             # kagent Helm 配置
@@ -38,10 +39,15 @@ kagent-ops/
 │   ├── crds/
 │   │   └── model-config.yaml       # ModelConfig 参考配置
 │   └── secrets/
-│       └── api-keys.yaml           # Secret 模板（仅供参考）
-└── docs/
-    ├── architecture.md             # 架构设计文档
-    └── development.md              # 本文档
+│       └── api-keys.yaml           # Secret 模板（仅供参考，本地）
+├── docs/
+│   ├── architecture.md             # 架构设计文档
+│   ├── development.md              # 本文档
+│   ├── contributions.md            # 贡献计划与社区 PR
+│   └── observability/
+│       └── slo-sli-error-budget.md # SLO/SLI/Error Budget 实践
+└── sre-demo/
+    └── zookeeper/                  # SRE 故障演练（Kustomize）
 ```
 
 ## 配置文件详解
