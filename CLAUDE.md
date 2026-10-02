@@ -29,8 +29,6 @@ kagent-ops/
 │   ├── architecture.md             # 架构设计文档
 │   ├── development.md              # 开发者文档
 │   └── contributions.md            # 社区贡献计划
-└── sre-demo/
-    └── zookeeper/                  # SRE 故障演练演示
 ```
 
 ## 常用命令

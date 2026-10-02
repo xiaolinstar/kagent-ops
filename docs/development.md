@@ -46,8 +46,6 @@ kagent-ops/
 │   ├── contributions.md            # 贡献计划与社区 PR
 │   └── observability/
 │       └── slo-sli-error-budget.md # SLO/SLI/Error Budget 实践
-└── sre-demo/
-    └── zookeeper/                  # SRE 故障演练（Kustomize）
 ```
 
 ## 配置文件详解
