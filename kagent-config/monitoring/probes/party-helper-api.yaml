@@ -1,0 +1,21 @@
+# Blackbox Probe - party-helper API 服务
+# 端口 8021（注意与 Service spec 不一致，监听端口以 deployment 为准）
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: party-helper-api
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: party-helper
+    app.kubernetes.io/component: backend
+spec:
+  interval: 30s
+  module: http_2xx_healthz
+  scrapeTimeout: 10s
+  targets:
+    staticConfig:
+      static:
+        - party-helper-api.party-helper.svc.cluster.local:8021
+      labels:
+        namespace: party-helper
+        service: party-helper-api

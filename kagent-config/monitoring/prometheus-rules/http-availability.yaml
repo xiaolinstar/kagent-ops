@@ -1,0 +1,57 @@
+# Prometheus 告警规则 - HTTP 可用性
+# 由 PrometheusRule CRD 管理，会被 kube-prometheus-stack 自动加载
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: http-availability
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: drinkzen-party-helper
+spec:
+  groups:
+    - name: drinkzen-party-helper.http
+      interval: 30s
+      rules:
+        # 探测失败：连续 2 分钟不通，触发告警
+        - alert: HttpProbeFailed
+          expr: probe_success{namespace=~"drinkzen|party-helper"} == 0
+          for: 2m
+          labels:
+            severity: warning
+            team: sre
+          annotations:
+            summary: "HTTP 探测失败 ({{ $labels.namespace }}/{{ $labels.service }})"
+            description: |
+              服务 {{ $labels.namespace }}/{{ $labels.service }} 已持续 2 分钟探测失败。
+              instance={{ $labels.instance }}
+              请检查 Service、Endpoint、Pod 状态。
+
+        # 探测慢：P95 响应时间 > 1s 持续 5 分钟
+        - alert: HttpProbeSlow
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (namespace, service, le) (
+                rate(probe_duration_seconds_bucket{namespace=~"drinkzen|party-helper"}[5m])
+              )
+            ) > 1
+          for: 5m
+          labels:
+            severity: warning
+            team: sre
+          annotations:
+            summary: "HTTP 响应缓慢 ({{ $labels.namespace }}/{{ $labels.service }})"
+            description: |
+              服务 {{ $labels.namespace }}/{{ $labels.service }} P95 响应时间 {{ $value | humanizeDuration }}。
+              可能原因：上游 LLM API 慢、Postgres 慢、Pod 资源不足。
+
+        # SSL 证书剩余有效期 < 7 天（暂未启用 HTTPS，但保留规则以便未来）
+        - alert: TlsCertExpiringSoon
+          expr: probe_ssl_earliest_cert_expiry - time() < 7 * 24 * 3600
+          for: 1h
+          labels:
+            severity: warning
+            team: sre
+          annotations:
+            summary: "TLS 证书即将过期 ({{ $labels.instance }})"
+            description: "证书将在 {{ $value | humanizeDuration }} 后过期。"

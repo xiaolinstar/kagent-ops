@@ -1,0 +1,22 @@
+# Blackbox Probe - drinkzen API 服务
+# 由 Prometheus Operator 的 Probe CRD 管理，每 30 秒探测一次
+# 指标标签：namespace=drinkzen, service=drinkzen-api
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: drinkzen-api
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: drinkzen
+    app.kubernetes.io/component: backend
+spec:
+  interval: 30s
+  module: http_2xx_healthz
+  scrapeTimeout: 10s
+  targets:
+    staticConfig:
+      static:
+        - drinkzen-api-local.drinkzen.svc.cluster.local:8000
+      labels:
+        namespace: drinkzen
+        service: drinkzen-api

@@ -1,5 +1,23 @@
 # kube-prometheus-stack Helm Values
-# 监控 kagent 集群
+# 监控 kagent 集群 + 业务服务（drinkzen / party-helper）
+
+# ============================================================
+# Blackbox Exporter - HTTP/TCP 主动探测
+# 配合 probes/*.yaml 中的 Probe CRD 使用
+# ConfigMap 由 kagent-config/monitoring/blackbox-config.yaml 提供
+# 部署后用：kubectl -n monitoring get cm blackbox-exporter-configuration
+# ============================================================
+blackboxExporter:
+  enabled: true
+  config:
+    existingConfigMap: blackbox-exporter-configuration
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
 
 # ============================================================
 # Prometheus 配置

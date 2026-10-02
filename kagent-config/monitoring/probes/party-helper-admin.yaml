@@ -1,0 +1,20 @@
+# Blackbox Probe - party-helper Admin 前端
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: party-helper-admin
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: party-helper
+    app.kubernetes.io/component: frontend
+spec:
+  interval: 30s
+  module: http_2xx_root
+  scrapeTimeout: 10s
+  targets:
+    staticConfig:
+      static:
+        - party-helper-admin.party-helper.svc.cluster.local:80
+      labels:
+        namespace: party-helper
+        service: party-helper-admin

@@ -1,0 +1,21 @@
+# Blackbox Probe - drinkzen Admin 前端
+# 注意：admin pod 未配 healthz，探测 /
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: drinkzen-admin
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: drinkzen
+    app.kubernetes.io/component: frontend
+spec:
+  interval: 30s
+  module: http_2xx_root
+  scrapeTimeout: 10s
+  targets:
+    staticConfig:
+      static:
+        - drinkzen-admin-local.drinkzen.svc.cluster.local:80
+      labels:
+        namespace: drinkzen
+        service: drinkzen-admin
