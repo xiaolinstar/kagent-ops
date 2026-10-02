@@ -20,15 +20,19 @@ kagent-ops/
 │   ├── helm/
 │   │   └── values.yaml             # kagent Helm 配置
 │   ├── monitoring/
-│   │   └── values.yaml             # 监控栈 Helm 配置
-│   ├── crds/
-│   │   └── model-config.yaml       # ModelConfig 参考配置
-│   └── secrets/
-│       └── api-keys.yaml           # Secret 模板（仅供参考）
+│   │   ├── values.yaml             # 监控栈 Helm 配置（kube-prometheus-stack + blackbox）
+│   │   ├── RUNBOOK.md              # 业务服务可观测性部署 Runbook
+│   │   ├── blackbox-config.yaml    # Blackbox 探测模块 ConfigMap
+│   │   ├── probes/                 # Probe CRD（drinkzen / party-helper）
+│   │   └── prometheus-rules/       # HTTP 可用性告警规则
+│   └── crds/
+│       └── model-config.yaml       # ModelConfig 参考配置
 ├── docs/
 │   ├── architecture.md             # 架构设计文档
 │   ├── development.md              # 开发者文档
-│   └── contributions.md            # 社区贡献计划
+│   ├── contributions.md            # 社区贡献计划
+│   └── observability/
+│       └── slo-sli-error-budget.md # SLO/SLI/Error Budget 实践
 ```
 
 ## 常用命令
@@ -96,7 +100,7 @@ providers:
   default: openAI
   openAI:
     provider: OpenAI
-    model: "deepseek-chat"
+    model: "deepseek-flash"
     apiKeySecretRef: kagent-deepseek
     apiKeySecretKey: DEEPSEEK_API_KEY
     config:
@@ -123,7 +127,7 @@ observability-agent:
 
 1. **不要通过 UI 创建 Agent**：否则 scale 后可能出现 "already exists" 冲突
 2. **WSL2 环境**：NodePort 端口无法从 Windows 直接访问，必须使用 `port-forward`
-3. **数据持久化**：PostgreSQL 使用 PVC，Prometheus 默认使用 emptyDir（重启会丢失）
+3. **数据持久化**：PostgreSQL 和 Prometheus 均使用 PVC（Prometheus 保留 15 天），重启不丢数据
 
 ## 参考链接
 

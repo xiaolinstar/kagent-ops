@@ -65,13 +65,11 @@ kubectl -n monitoring get pods -l app.kubernetes.io/name=blackbox-exporter
 kubectl -n monitoring get probes
 
 # 3. Prometheus 应已加载规则
-kubectl -n monitoring
-exec prometheus-monitoring-kube-prometheus-prometheus-0 -- \
+kubectl -n monitoring exec prometheus-monitoring-kube-prometheus-prometheus-0 -- \
   promtool check rules /etc/prometheus/rules/prometheus-monitoring-kube-prometheus-prometheus-rulefiles-0/*.yaml
 
 # 4. 查询探针指标
-kubectl -n monitoring
-port-forward svc/prometheus-operated 9090:9090
+kubectl -n monitoring port-forward svc/prometheus-operated 9090:9090
 # 浏览器：http://localhost:9090
 # 查询：probe_success{namespace=~"drinkzen|party-helper"}
 ```
@@ -123,7 +121,7 @@ kubectl -n drinkzen scale deploy drinkzen-api-local --replicas=1
 | --- | --- |
 | 服务可用率 | `avg by (namespace, service) (probe_success)` |
 | 响应时间热力图 | `probe_duration_seconds` 散点 |
-| 24h 告警趋势 | `ALERTS{alertstate="firing", namespace=~"drinkzen|party-helper"}` |
+| 24h 告警趋势 | `ALERTS{alertstate="firing", namespace=~"drinkzen\|party-helper"}` |
 
 ## 🔄 升级路径
 

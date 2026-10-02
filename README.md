@@ -136,7 +136,11 @@ kagent-ops/
 │   ├── helm/
 │   │   └── values.yaml             # kagent Helm 配置
 │   ├── monitoring/
-│   │   └── values.yaml             # 监控栈 Helm 配置
+│   │   ├── values.yaml             # 监控栈 Helm 配置（kube-prometheus-stack + blackbox）
+│   │   ├── RUNBOOK.md              # 业务服务可观测性部署 Runbook
+│   │   ├── blackbox-config.yaml    # Blackbox 探测模块 ConfigMap
+│   │   ├── probes/                 # Probe CRD（drinkzen / party-helper）
+│   │   └── prometheus-rules/       # HTTP 可用性告警规则
 │   └── crds/
 │       └── model-config.yaml       # ModelConfig 参考
 ├── docs/
@@ -305,7 +309,7 @@ kubectl delete ns monitoring
 | Agent CRDs | etcd (K8s 内置) | ✅ 不受 scale 影响 |
 | ModelConfig | etcd + Helm | ✅ 不受 scale 影响 |
 | Session 数据 | PostgreSQL | ✅ PVC 保护 |
-| Prometheus 数据 | PVC (emptyDir) | ⚠️ 重启会丢失 |
+| Prometheus 数据 | PVC (10Gi，保留 15 天) | ✅ 重启不丢失 |
 | Grafana 配置 | ConfigMap | ✅ 不受 scale 影响 |
 
 > ⚠️ 不要通过 UI 创建 Agent，否则 scale 后可能出现 "already exists" 冲突。
