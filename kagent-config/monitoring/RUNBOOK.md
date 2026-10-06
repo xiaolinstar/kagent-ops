@@ -21,7 +21,7 @@
 | `monitoring/values.yaml` | Helm Values | kube-prometheus-stack 配置 |
 | `monitoring/blackbox-values.yaml` | Helm Values | blackbox-exporter **独立 chart** 配置（含探测模块） |
 | `monitoring/beyla-values.yaml` | Helm Values | Beyla eBPF 配置 |
-| `monitoring/probes/*.yaml` | Probe CRD ×5 | drinkzen/party-helper 的 API 探测、Admin 存活探测、Admin 部署完整性探测 |
+| `monitoring/probes/*.yaml` | Probe CRD ×6 | drinkzen/party-helper 的 API 探测、各自 Admin 存活探测 + 部署完整性探测 |
 | `monitoring/prometheus-rules/http-availability.yaml` | PrometheusRule | 探测失败/慢响应/证书告警 |
 | `monitoring/dashboards/business-overview.yaml` | ConfigMap | Grafana 业务总览面板（sidecar 自动加载） |
 
@@ -170,12 +170,12 @@ kubectl scale deploy party-helper-api -n party-helper --replicas=1
 ## ⚠️ 已知限制与待办
 
 1. **party-helper-api 端口**：已统一为 ClusterIP `8021 → targetPort 8021`（原 8022→8021 已修正）。
-2. **Admin SPA 两层探测**：SPA 前端对错误路由返回 200 + index.html（客户端渲染 404 页），属正常业务行为，不可由 HTTP 探测发现。因此 Admin 分两层：
-   - 第一层（进程存活）：nginx 精确匹配 `location = /healthz` 返回 JSON（非 SPA 兜底），Probe 用 `http_2xx_healthz`。**party-helper-admin 已上线**；drinkzen-admin 仍为 `http_2xx_root`（仅端口存活），待业务侧加同样端点后切换。
-   - 第二层（部署完整性）：Probe `*-admin-index` 用 `http_2xx_index` 探 `/`，校验响应体含 SPA 挂载点 `<div id="app">`，可发现「进程活着但前端产物损坏/白屏」。已实测：缺失静态资源 404 → 失败；正常 index.html → 成功。新增前端接入时注意 body 正则要与该项目 index.html 挂载点一致。
-3. **drinkzen-admin 仍是单层探测**：待业务侧上线 nginx `/healthz` 后，参照 party-helper 的两个 Probe 复制一份（注意其 Service 端口为 8080）。
-4. **drinkzen-api 容器内 wget/curl 异常**：容器内网络工具探测不到自身 `/healthz`（K8s 探针与外部 Blackbox 探测均正常）。属镜像环境问题，不影响监控。
-5. **Phase 2 待办**：postgres-exporter（业务库指标）由业务项目部署；FastAPI 埋点 `/metrics` 视 Beyla 数据够用程度再定。
+2. **Admin SPA 两层探测**：SPA 前端对错误路由返回 200 + index.html（客户端渲染 404 页），属正常业务行为，不可由 HTTP 探测发现。因此两个 Admin 均分两层：
+   - 第一层（进程存活）：nginx 精确匹配 `location = /healthz` 返回 JSON（非 SPA 兜底），Probe 用 `http_2xx_healthz`。**drinkzen-admin 与 party-helper-admin 均已上线**。
+   - 第二层（部署完整性）：Probe `*-admin-index` 用 `http_2xx_index` 探 `/`，校验响应体含 SPA 挂载点 `<div id="app">`，可发现「进程活着但 index.html 损坏/白屏」。新增前端接入时注意 body 正则要与该项目 index.html 挂载点一致。
+   - 局限：hash 命名的 JS chunk 路径每次构建变化且被 SPA 兜底，Blackbox 无法探测其运行时加载失败；这类问题需前端 RUM（后续阶段考虑）。
+3. **drinkzen-api 容器内 wget/curl 异常**：容器内网络工具探测不到自身 `/healthz`（K8s 探针与外部 Blackbox 探测均正常）。属镜像环境问题，不影响监控。
+4. **Phase 2 待办**：postgres-exporter（业务库指标）由业务项目部署；FastAPI 埋点 `/metrics` 视 Beyla 数据够用程度再定。
 
 ## 🌍 环境注意事项（发行版差异）
 

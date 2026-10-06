@@ -1,9 +1,9 @@
-# Blackbox Probe - drinkzen Admin 前端（第一层：进程存活）
-# 业务侧 nginx 已提供真实 /healthz（返回 application/json，非 SPA 兜底）
+# Blackbox Probe - drinkzen Admin 前端（第二层：部署完整性）
+# 探测 /（index.html）且校验响应体包含 SPA 挂载点；hash chunk 404 由前端兜底无法发现，本层只保证入口完好
 apiVersion: monitoring.coreos.com/v1
 kind: Probe
 metadata:
-  name: drinkzen-admin
+  name: drinkzen-admin-index
   namespace: monitoring
   labels:
     app.kubernetes.io/part-of: drinkzen
@@ -12,12 +12,13 @@ spec:
   prober:
     url: blackbox-exporter-prometheus-blackbox-exporter.monitoring.svc.cluster.local:19115
   interval: 30s
-  module: http_2xx_healthz
+  module: http_2xx_index
   scrapeTimeout: 10s
   targets:
     staticConfig:
       static:
-        - http://drinkzen-admin-local.drinkzen.svc.cluster.local:8080/healthz
+        - http://drinkzen-admin-local.drinkzen.svc.cluster.local:8080/
       labels:
         namespace: drinkzen
         service: drinkzen-admin
+        layer: deploy-integrity
