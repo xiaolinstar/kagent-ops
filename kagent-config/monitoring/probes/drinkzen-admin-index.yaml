@@ -17,7 +17,7 @@ spec:
   targets:
     staticConfig:
       static:
-        - http://drinkzen-admin-local.drinkzen.svc.cluster.local:8080/
+        - http://drinkzen-admin.drinkzen.svc.cluster.local:80/
       labels:
         namespace: drinkzen
         service: drinkzen-admin

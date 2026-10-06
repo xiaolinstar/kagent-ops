@@ -169,7 +169,7 @@ kubectl scale deploy party-helper-api -n party-helper --replicas=1
 
 ## ⚠️ 已知限制与待办
 
-1. **party-helper-api 端口**：已统一为 ClusterIP `8021 → targetPort 8021`（原 8022→8021 已修正）。
+1. **端口规范（Service 端口 = Pod 端口，targetPort 统一名字引用 `http`）**：API 一律 `8000`（FastAPI 默认），Admin 一律 `80`（nginx 默认），PostgreSQL `5432`。即 drinkzen-api 8000、drinkzen-admin 80、party-helper-api 8000、party-helper-admin 80。本机 port-forward 分段独立于集群端口（drinkzen 18011/18012，party-helper 18021/18022，尾号 1=API、2=Admin）。
 2. **Admin SPA 两层探测**：SPA 前端对错误路由返回 200 + index.html（客户端渲染 404 页），属正常业务行为，不可由 HTTP 探测发现。因此两个 Admin 均分两层：
    - 第一层（进程存活）：nginx 精确匹配 `location = /healthz` 返回 JSON（非 SPA 兜底），Probe 用 `http_2xx_healthz`。**drinkzen-admin 与 party-helper-admin 均已上线**。
    - 第二层（部署完整性）：Probe `*-admin-index` 用 `http_2xx_index` 探 `/`，校验响应体含 SPA 挂载点 `<div id="app">`，可发现「进程活着但 index.html 损坏/白屏」。新增前端接入时注意 body 正则要与该项目 index.html 挂载点一致。

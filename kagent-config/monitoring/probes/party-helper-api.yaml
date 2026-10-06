@@ -1,5 +1,5 @@
 # Blackbox Probe - party-helper API 服务
-# Service 已统一为 ClusterIP 8021 -> targetPort 8021
+# Service 为 ClusterIP 8000 -> targetPort http（FastAPI 默认端口）
 apiVersion: monitoring.coreos.com/v1
 kind: Probe
 metadata:
@@ -17,7 +17,7 @@ spec:
   targets:
     staticConfig:
       static:
-        - http://party-helper-api.party-helper.svc.cluster.local:8021/healthz
+        - http://party-helper-api.party-helper.svc.cluster.local:8000/healthz
       labels:
         namespace: party-helper
         service: party-helper-api
