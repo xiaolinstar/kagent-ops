@@ -136,11 +136,13 @@ kagent-ops/
 │   ├── helm/
 │   │   └── values.yaml             # kagent Helm 配置
 │   ├── monitoring/
-│   │   ├── values.yaml             # 监控栈 Helm 配置（kube-prometheus-stack + blackbox）
+│   │   ├── values.yaml             # kube-prometheus-stack Helm 配置
+│   │   ├── blackbox-values.yaml    # blackbox-exporter 独立 chart 配置
+│   │   ├── beyla-values.yaml       # Beyla eBPF 零插桩 RED 配置
 │   │   ├── RUNBOOK.md              # 业务服务可观测性部署 Runbook
-│   │   ├── blackbox-config.yaml    # Blackbox 探测模块 ConfigMap
 │   │   ├── probes/                 # Probe CRD（drinkzen / party-helper）
-│   │   └── prometheus-rules/       # HTTP 可用性告警规则
+│   │   ├── prometheus-rules/       # HTTP 可用性告警规则
+│   │   └── dashboards/             # Grafana Dashboard（ConfigMap 自动加载）
 │   └── crds/
 │       └── model-config.yaml       # ModelConfig 参考
 ├── docs/
@@ -148,6 +150,7 @@ kagent-ops/
 │   ├── development.md              # 开发者文档
 │   ├── contributions.md            # 贡献计划与社区 PR
 │   └── observability/
+│       ├── observability-design.md # 业务可观测性总体设计（Phase 1 指标）
 │       └── slo-sli-error-budget.md # SLO/SLI/Error Budget 实践
 ```
 

@@ -1,5 +1,6 @@
 # Blackbox Probe - drinkzen Admin 前端
-# 注意：admin pod 未配 healthz，探测 /
+# 现状：admin 无真实 healthz（SPA 对任意路径返回 200 HTML），探测语义为"端口存活"
+# TODO：业务侧上线真实 /healthz 后，module 改为 http_2xx_healthz
 apiVersion: monitoring.coreos.com/v1
 kind: Probe
 metadata:
@@ -9,13 +10,15 @@ metadata:
     app.kubernetes.io/part-of: drinkzen
     app.kubernetes.io/component: frontend
 spec:
+  prober:
+    url: blackbox-exporter-prometheus-blackbox-exporter.monitoring.svc.cluster.local:19115
   interval: 30s
   module: http_2xx_root
   scrapeTimeout: 10s
   targets:
     staticConfig:
       static:
-        - drinkzen-admin-local.drinkzen.svc.cluster.local:80
+        - http://drinkzen-admin-local.drinkzen.svc.cluster.local:8080/
       labels:
         namespace: drinkzen
         service: drinkzen-admin

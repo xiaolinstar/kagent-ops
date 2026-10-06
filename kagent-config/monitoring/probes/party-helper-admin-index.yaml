@@ -1,9 +1,10 @@
-# Blackbox Probe - party-helper Admin 前端（第一层：进程存活）
-# 业务侧 nginx 已提供真实 /healthz（返回 application/json，非 SPA 兜底）
+# Blackbox Probe - party-helper Admin 前端（第二层：部署完整性）
+# 探测 /（index.html）且校验响应体包含 SPA 挂载点 <div id="app">
+# 能发现"进程活着但前端产物损坏/部署不完整导致白屏"这类故障
 apiVersion: monitoring.coreos.com/v1
 kind: Probe
 metadata:
-  name: party-helper-admin
+  name: party-helper-admin-index
   namespace: monitoring
   labels:
     app.kubernetes.io/part-of: party-helper
@@ -12,12 +13,13 @@ spec:
   prober:
     url: blackbox-exporter-prometheus-blackbox-exporter.monitoring.svc.cluster.local:19115
   interval: 30s
-  module: http_2xx_healthz
+  module: http_2xx_index
   scrapeTimeout: 10s
   targets:
     staticConfig:
       static:
-        - http://party-helper-admin.party-helper.svc.cluster.local:80/healthz
+        - http://party-helper-admin.party-helper.svc.cluster.local:80/
       labels:
         namespace: party-helper
         service: party-helper-admin
+        layer: deploy-integrity

@@ -1,0 +1,116 @@
+# Grafana Dashboard（由 grafana sidecar 自动加载，标签 grafana_dashboard=1）
+# 业务服务总览：Blackbox 可用率 + Beyla RED + Pod 重启
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: business-overview-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    grafana_folder: Business
+data:
+  business-overview.json: |-
+    {
+      "title": "Business Services Overview",
+      "tags": ["business", "drinkzen", "party-helper", "sre"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": {"from": "now-1h", "to": "now"},
+      "templating": {"list": [
+        {
+          "name": "namespace",
+          "type": "custom",
+          "current": {"text": "All", "value": "drinkzen|party-helper"},
+          "options": [
+            {"text": "All", "value": "drinkzen|party-helper"},
+            {"text": "drinkzen", "value": "drinkzen"},
+            {"text": "party-helper", "value": "party-helper"}
+          ],
+          "query": "All,drinkzen,party-helper"
+        }
+      ]},
+      "panels": [
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "探测可用率（24h）",
+          "gridPos": {"h": 5, "w": 8, "x": 0, "y": 0},
+          "fieldConfig": {"defaults": {"unit": "percentunit", "thresholds": {"steps": [
+            {"color": "red", "value": null}, {"color": "yellow", "value": 0.95}, {"color": "green", "value": 0.99}
+          ]}, "min": 0, "max": 1}, "overrides": []},
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "value"},
+          "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "avg_over_time(probe_success{namespace=~\"$namespace\"}[24h])",
+            "legendFormat": "{{service}}"}]
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "当前 QPS（2m）",
+          "gridPos": {"h": 5, "w": 8, "x": 8, "y": 0},
+          "fieldConfig": {"defaults": {"unit": "reqps", "thresholds": {"steps": [
+            {"color": "blue", "value": null}
+          ]}}, "overrides": []},
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "value"},
+          "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "sum by (k8s_deployment_name) (rate(http_server_request_duration_seconds_count{k8s_namespace_name=~\"$namespace\"}[2m]))",
+            "legendFormat": "{{k8s_deployment_name}}"}]
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "5xx 错误率（5m）",
+          "gridPos": {"h": 5, "w": 8, "x": 16, "y": 0},
+          "fieldConfig": {"defaults": {"unit": "percentunit", "thresholds": {"steps": [
+            {"color": "green", "value": null}, {"color": "yellow", "value": 0.01}, {"color": "red", "value": 0.05}
+          ]}, "min": 0}, "overrides": []},
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "value"},
+          "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "sum by (k8s_deployment_name) (rate(http_server_request_duration_seconds_count{k8s_namespace_name=~\"$namespace\",http_response_status_code=~\"5..\"}[5m])) / clamp_min(sum by (k8s_deployment_name) (rate(http_server_request_duration_seconds_count{k8s_namespace_name=~\"$namespace\"}[5m])), 0.0001)",
+            "legendFormat": "{{k8s_deployment_name}}"}]
+        },
+        {
+          "id": 4,
+          "type": "timeseries",
+          "title": "QPS（按部署）",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+          "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+          "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "sum by (k8s_deployment_name) (rate(http_server_request_duration_seconds_count{k8s_namespace_name=~\"$namespace\"}[2m]))",
+            "legendFormat": "{{k8s_deployment_name}}"}]
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "P95 延迟（按部署）",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+          "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+          "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "histogram_quantile(0.95, sum by (le, k8s_deployment_name) (rate(http_server_request_duration_seconds_bucket{k8s_namespace_name=~\"$namespace\"}[5m])))",
+            "legendFormat": "{{k8s_deployment_name}} p95"}]
+        },
+        {
+          "id": 6,
+          "type": "timeseries",
+          "title": "Blackbox 探测延迟（按服务）",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 13},
+          "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+          "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "probe_duration_seconds{namespace=~\"$namespace\"}",
+            "legendFormat": "{{service}}"}]
+        },
+        {
+          "id": 7,
+          "type": "timeseries",
+          "title": "Pod 重启次数（1h 增量）",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 13},
+          "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+          "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "sum by (pod, namespace) (increase(kube_pod_container_status_restarts_total{namespace=~\"$namespace\"}[1h])) > 0",
+            "legendFormat": "{{namespace}}/{{pod}}"}]
+        }
+      ]
+    }

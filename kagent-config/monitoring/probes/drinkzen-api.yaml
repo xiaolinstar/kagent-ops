@@ -10,13 +10,15 @@ metadata:
     app.kubernetes.io/part-of: drinkzen
     app.kubernetes.io/component: backend
 spec:
+  prober:
+    url: blackbox-exporter-prometheus-blackbox-exporter.monitoring.svc.cluster.local:19115
   interval: 30s
   module: http_2xx_healthz
   scrapeTimeout: 10s
   targets:
     staticConfig:
       static:
-        - drinkzen-api-local.drinkzen.svc.cluster.local:8000
+        - http://drinkzen-api-local.drinkzen.svc.cluster.local:8000/healthz
       labels:
         namespace: drinkzen
         service: drinkzen-api

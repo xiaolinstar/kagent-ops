@@ -1,0 +1,60 @@
+# prometheus-blackbox-exporter 独立 Helm chart values
+# 说明：kube-prometheus-stack 51.x 已移除内置 blackbox 子 chart，需独立安装：
+#   helm upgrade --install blackbox-exporter \
+#     prometheus-community/prometheus-blackbox-exporter \
+#     -n monitoring --values blackbox-values.yaml
+# 配置由该 chart 生成 ConfigMap（原 blackbox-config.yaml 已并入本文件）
+
+service:
+  port: 19115
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+# Blackbox 探测模块（模块名对应 Probe.spec.module）
+config:
+  modules:
+    # 用于业务 API：探测 /healthz，仅接受 200/204
+    http_2xx_healthz:
+      prober: http
+      timeout: 5s
+      http:
+        preferred_ip_protocol: ip4
+        valid_status_codes: [200, 204]
+        method: GET
+        follow_redirects: true
+    # 用于 Admin 前端第二层（部署完整性）：探 index.html，仅接受 200，
+    # 并校验响应体包含 SPA 挂载点；index.html 损坏/被截断时判失败
+    # 注意：挂载点字符串需与各前端项目 index.html 实际一致
+    http_2xx_index:
+      prober: http
+      timeout: 5s
+      http:
+        preferred_ip_protocol: ip4
+        valid_status_codes: [200]
+        method: GET
+        fail_if_body_not_matches_regexp:
+          - '<div id="app">'
+    # 用于 Admin 前端（SPA 无真实 healthz 时的兜底）：探测 /，接受 2xx/3xx，语义为"端口存活"
+    http_2xx_root:
+      prober: http
+      timeout: 5s
+      http:
+        preferred_ip_protocol: ip4
+        valid_status_codes: [200, 201, 301, 302, 303, 307, 308]
+        method: GET
+        follow_redirects: true
+
+# 由 Prometheus 采集 blackbox 自身指标
+# 注意：开关是 selfMonitor；release 标签为 kube-prometheus-stack 的发现约定
+serviceMonitor:
+  selfMonitor:
+    enabled: true
+    interval: 30s
+    labels:
+      release: monitoring

@@ -2,22 +2,9 @@
 # 监控 kagent 集群 + 业务服务（drinkzen / party-helper）
 
 # ============================================================
-# Blackbox Exporter - HTTP/TCP 主动探测
-# 配合 probes/*.yaml 中的 Probe CRD 使用
-# ConfigMap 由 kagent-config/monitoring/blackbox-config.yaml 提供
-# 部署后用：kubectl -n monitoring get cm blackbox-exporter-configuration
+# Blackbox Exporter - 独立 Helm release（本 chart 51.x 已移除内置子 chart）
+# 安装方式见 blackbox-values.yaml 顶部注释；Probe CRD 见 probes/
 # ============================================================
-blackboxExporter:
-  enabled: true
-  config:
-    existingConfigMap: blackbox-exporter-configuration
-  resources:
-    requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
-      cpu: 200m
-      memory: 128Mi
 
 # ============================================================
 # Prometheus 配置
@@ -27,6 +14,7 @@ prometheus:
     # 监控所有命名空间
     serviceMonitorSelectorNilUsesHelmValues: false
     podMonitorSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
     ruleSelectorNilUsesHelmValues: false
     
     # 存储配置 - PVC 持久化（重启不丢数据）

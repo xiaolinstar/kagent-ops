@@ -1,0 +1,58 @@
+# Grafana Beyla values —— eBPF 零插桩采集业务 HTTP RED 指标
+# 部署：
+#   helm repo add grafana https://grafana.github.io/helm-charts
+#   helm upgrade --install beyla grafana/beyla \
+#     -n monitoring --version 1.16.11 --values beyla-values.yaml
+# 指标：http_server_request_duration_seconds / http_server_request_body_size 等
+# 要求：节点内核 >= 5.8 且支持 BTF（多数主流容器运行时默认满足）
+
+preset: application
+
+# 暴露 DaemonSet 自身的 Prometheus 指标（ServiceMonitor 依赖此开关）
+service:
+  enabled: true
+
+# DaemonSet 特权模式（eBPF 加载所需），chart 默认 privileged: true
+resources:
+  requests:
+    cpu: 50m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+serviceMonitor:
+  enabled: true
+  # kube-prometheus-stack 的 Prometheus 要求外部 ServiceMonitor 带 release 标签
+  additionalLabels:
+    release: monitoring
+  metrics:
+    endpoint:
+      interval: 15s
+
+# K8s 元数据缓存：DaemonSet 将 OTLP 数据汇聚于此，富化 K8s 标签后暴露 Prometheus 指标
+k8sCache:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+config:
+  data:
+    attributes:
+      kubernetes:
+        enable: true
+    # 过滤掉系统与可观测组件自身流量，业务流量（drinkzen / party-helper）全量保留
+    filter:
+      network:
+        k8s_dst_owner_name:
+          not_match: '{kube*,*jaeger-agent*,*prometheus*,*promtail*,*grafana-agent*,*beyla*}'
+        k8s_src_owner_name:
+          not_match: '{kube*,*jaeger-agent*,*prometheus*,*promtail*,*grafana-agent*,*beyla*}'
+    prometheus_export:
+      port: 9090
+      path: /metrics
