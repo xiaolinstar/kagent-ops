@@ -66,9 +66,9 @@ grafana:
   enabled: true
   
   # 访问方式
+  # 改为 ClusterIP，访问统一使用 kubectl port-forward
   service:
-    type: NodePort
-    nodePort: 31080
+    type: ClusterIP
   
   # 默认账号密码
   adminUser: admin
