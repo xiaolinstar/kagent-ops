@@ -21,7 +21,7 @@
 | `monitoring/values.yaml` | Helm Values | kube-prometheus-stack 配置 |
 | `monitoring/blackbox-values.yaml` | Helm Values | blackbox-exporter **独立 chart** 配置（含探测模块） |
 | `monitoring/beyla-values.yaml` | Helm Values | Beyla eBPF 配置 |
-| `monitoring/probes/*.yaml` | Probe CRD ×8 | 全部业务服务入口：API/Realtime/Web 探 /healthz，Admin 两层探测（healthz + 部署完整性） |
+| `monitoring/probes/*.yaml` | Probe CRD ×9 | 全部业务服务入口：API/Realtime 探 /healthz；Admin/Web 四个 Vue SPA 两层探测（healthz + 部署完整性） |
 | `monitoring/prometheus-rules/http-availability.yaml` | PrometheusRule | 探测失败/慢响应/证书告警 |
 | `monitoring/prometheus-rules/pod-health.yaml` | PrometheusRule | Pod 重启风暴 / OOMKilled 告警 |
 | `monitoring/prometheus-rules/observability-coverage.yaml` | PrometheusRule | 覆盖缺口自动发现（有流量但无探测的服务） |
@@ -64,7 +64,7 @@ helm upgrade --install blackbox-exporter \
   -n monitoring --values kagent-config/monitoring/blackbox-values.yaml
 ```
 
-探测模块（`http_2xx_healthz` / `http_2xx_root`）由该 chart 自动生成 ConfigMap，无需单独 apply。
+探测模块（`http_2xx_healthz` / `http_2xx_index`）由该 chart 自动生成 ConfigMap，无需单独 apply。
 
 ### 4. 应用 Probe 与告警规则
 
@@ -98,7 +98,7 @@ kubectl get pods -n monitoring
 # 2. Probe 已注册
 kubectl get probes -n monitoring
 
-# 3. 探测指标：8 个探测目标应全部 probe_success = 1
+# 3. 探测指标：9 个探测目标应全部 probe_success = 1
 kubectl port-forward -n monitoring svc/monitoring-kube-prometheus-prometheus 9090:9090
 # 查询：probe_success{namespace=~"drinkzen|party-helper"}
 
@@ -190,7 +190,7 @@ kubectl scale deploy party-helper-api -n party-helper --replicas=1
 ## ⚠️ 已知限制与待办
 
 1. **端口规范（Service 端口 = Pod 端口，targetPort 统一名字引用 `http`）**：API 一律 `8000`（FastAPI 默认），Admin 一律 `80`（nginx 默认），PostgreSQL `5432`。即 drinkzen-api 8000、drinkzen-admin 80、party-helper-api 8000、party-helper-admin 80、party-helper-realtime 8080、party-helper-web 80。本机 port-forward 分段独立于集群端口（drinkzen 18011/18012，party-helper 18021/18022，尾号 1=API、2=Admin）。
-2. **Admin SPA 两层探测**：SPA 前端对错误路由返回 200 + index.html（客户端渲染 404 页），属正常业务行为，不可由 HTTP 探测发现。因此两个 Admin 均分两层：
+2. **前端 SPA 两层探测**：SPA 前端对错误路由返回 200 + index.html（客户端渲染 404 页），属正常业务行为，不可由 HTTP 探测发现。因此四个 Vue SPA 前端（drinkzen-admin、party-helper-admin、party-helper-web H5 页）均分两层：
    - 第一层（进程存活）：nginx 精确匹配 `location = /healthz` 返回 JSON（非 SPA 兜底），Probe 用 `http_2xx_healthz`。**drinkzen-admin 与 party-helper-admin 均已上线**。
    - 第二层（部署完整性）：Probe `*-admin-index` 用 `http_2xx_index` 探 `/`，校验响应体含 SPA 挂载点 `<div id="app">`，可发现「进程活着但 index.html 损坏/白屏」。新增前端接入时注意 body 正则要与该项目 index.html 挂载点一致。
    - 局限：hash 命名的 JS chunk 路径每次构建变化且被 SPA 兜底，Blackbox 无法探测其运行时加载失败；这类问题需前端 RUM（后续阶段考虑）。

@@ -1,0 +1,25 @@
+# Blackbox Probe - party-helper Web 前端（第二层：部署完整性）
+# web 为 H5 游戏页（Vue SPA，挂载点 <div id="app">，与 admin 同构）
+# 校验 index.html 完好，可发现「进程活着但页面损坏/白屏/发错版本」
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: party-helper-web-index
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: party-helper
+    app.kubernetes.io/component: frontend
+spec:
+  prober:
+    url: blackbox-exporter-prometheus-blackbox-exporter.monitoring.svc.cluster.local:19115
+  interval: 30s
+  module: http_2xx_index
+  scrapeTimeout: 10s
+  targets:
+    staticConfig:
+      static:
+        - http://party-helper-web.party-helper.svc.cluster.local:80/
+      labels:
+        namespace: party-helper
+        service: party-helper-web
+        layer: deploy-integrity

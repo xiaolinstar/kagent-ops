@@ -28,8 +28,9 @@ config:
         valid_status_codes: [200, 204]
         method: GET
         follow_redirects: true
-    # 用于 Admin 前端第二层（部署完整性）：探 index.html，仅接受 200，
+    # 用于前端第二层（部署完整性）：探 index.html，仅接受 200，
     # 并校验响应体包含 SPA 挂载点；index.html 损坏/被截断时判失败
+    # 适用于所有 Vue SPA（admin / web），挂载点均为 <div id="app">
     # 注意：挂载点字符串需与各前端项目 index.html 实际一致
     http_2xx_index:
       prober: http
@@ -40,15 +41,6 @@ config:
         method: GET
         fail_if_body_not_matches_regexp:
           - '<div id="app">'
-    # 用于 Admin 前端（SPA 无真实 healthz 时的兜底）：探测 /，接受 2xx/3xx，语义为"端口存活"
-    http_2xx_root:
-      prober: http
-      timeout: 5s
-      http:
-        preferred_ip_protocol: ip4
-        valid_status_codes: [200, 201, 301, 302, 303, 307, 308]
-        method: GET
-        follow_redirects: true
 
 # 由 Prometheus 采集 blackbox 自身指标
 # 注意：开关是 selfMonitor；release 标签为 kube-prometheus-stack 的发现约定

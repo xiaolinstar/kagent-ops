@@ -1,6 +1,6 @@
-# Blackbox Probe - party-helper Web 前端（进程存活）
+# Blackbox Probe - party-helper Web 前端（第一层：进程存活）
 # nginx 已提供真实 /healthz（application/json，非 SPA 兜底）
-# 注：web 的 / 为 489 字节静态页（非 SPA 挂载点模式），暂不适用 index 完整性探测
+# 第二层部署完整性探测见 party-helper-web-index.yaml（Vue SPA，挂载点校验）
 apiVersion: monitoring.coreos.com/v1
 kind: Probe
 metadata:
