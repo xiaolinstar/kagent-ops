@@ -1,0 +1,45 @@
+# Prometheus 告警规则 - 可观测性覆盖治理
+# 原理：Beyla 通过 eBPF 自动发现所有有 HTTP 流量的部署（事实源），
+#      与 Blackbox 探测清单（probe_success）对比；任何"有流量但无探测"的服务自动告警。
+# 作用：新服务上线后忘记配 Probe 不再依赖人记忆，由系统自动发现遗漏。
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: observability-coverage
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: drinkzen-party-helper
+spec:
+  groups:
+    - name: drinkzen-party-helper.coverage
+      interval: 30s
+      rules:
+        # 覆盖缺口：近 10 分钟有真实流量、但没有任何 Blackbox 探测的部署
+        # 说明：这是治理类告警（severity: info），非故障告警，
+        #      Alertmanager 启用后应路由到低优先级渠道
+        - alert: ObservabilityCoverageGap
+          expr: |
+            label_replace(
+              label_replace(
+                count by (k8s_namespace_name, k8s_deployment_name) (
+                  rate(http_server_request_duration_seconds_count{k8s_namespace_name=~"drinkzen|party-helper"}[10m]) > 0
+                ),
+                "service", "$1", "k8s_deployment_name", "(.+)"
+              ),
+              "namespace", "$1", "k8s_namespace_name", "(.+)"
+            )
+            unless on (namespace, service)
+            count by (namespace, service) (
+              probe_success{namespace=~"drinkzen|party-helper"}
+            )
+          for: 30m
+          labels:
+            severity: info
+            team: sre
+          annotations:
+            summary: "可观测性覆盖缺口 ({{ $labels.namespace }}/{{ $labels.service }})"
+            description: |
+              部署 {{ $labels.namespace }}/{{ $labels.service }} 近 10 分钟有真实 HTTP 流量
+              （Beyla 自动发现），但没有配置任何 Blackbox 探测——服务挂掉不会触发可用性告警。
+              补充方式：在 kagent-config/monitoring/probes/ 添加对应 Probe
+              （探 /healthz，参照现有文件格式），然后 kubectl apply。

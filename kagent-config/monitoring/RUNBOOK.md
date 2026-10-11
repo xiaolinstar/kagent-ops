@@ -2,7 +2,7 @@
 
 > 适用范围：标准 Kubernetes 集群（>= 1.25，内核 >= 5.8 以支持 eBPF）
 > 监控目标：`drinkzen`、`party-helper` 两个命名空间
-> 本文档与集群发行版无关；发行版差异见文末「环境注意事项」
+> 本文档适用于任何标准 Kubernetes 集群，不与特定发行版绑定
 
 ## 监控能力总览
 
@@ -21,8 +21,10 @@
 | `monitoring/values.yaml` | Helm Values | kube-prometheus-stack 配置 |
 | `monitoring/blackbox-values.yaml` | Helm Values | blackbox-exporter **独立 chart** 配置（含探测模块） |
 | `monitoring/beyla-values.yaml` | Helm Values | Beyla eBPF 配置 |
-| `monitoring/probes/*.yaml` | Probe CRD ×6 | drinkzen/party-helper 的 API 探测、各自 Admin 存活探测 + 部署完整性探测 |
+| `monitoring/probes/*.yaml` | Probe CRD ×8 | 全部业务服务入口：API/Realtime/Web 探 /healthz，Admin 两层探测（healthz + 部署完整性） |
 | `monitoring/prometheus-rules/http-availability.yaml` | PrometheusRule | 探测失败/慢响应/证书告警 |
+| `monitoring/prometheus-rules/pod-health.yaml` | PrometheusRule | Pod 重启风暴 / OOMKilled 告警 |
+| `monitoring/prometheus-rules/observability-coverage.yaml` | PrometheusRule | 覆盖缺口自动发现（有流量但无探测的服务） |
 | `monitoring/dashboards/business-overview.yaml` | ConfigMap | Grafana 业务总览面板（sidecar 自动加载） |
 
 ## 前置条件
@@ -96,7 +98,7 @@ kubectl get pods -n monitoring
 # 2. Probe 已注册
 kubectl get probes -n monitoring
 
-# 3. 探测指标：4 个目标应全部 probe_success = 1
+# 3. 探测指标：8 个探测目标应全部 probe_success = 1
 kubectl port-forward -n monitoring svc/monitoring-kube-prometheus-prometheus 9090:9090
 # 查询：probe_success{namespace=~"drinkzen|party-helper"}
 
@@ -147,8 +149,22 @@ sum by (k8s_deployment_name) (
 | TlsCertExpiringSoon | 证书 < 7 天过期 | 1 小时 | warning |
 | PodRestartBurst | 容器 30 分钟内重启 > 3 次 | 5 分钟 | warning |
 | PodOOMKilled | 最近一次终止原因为 OOMKilled | 即时 | warning |
+| ObservabilityCoverageGap | 有流量但无探测的服务 | 30 分钟 | info |
 
 > Pod 健康类规则见 `prometheus-rules/pod-health.yaml`（指标来源 kube-state-metrics）。
+> `ObservabilityCoverageGap` 为治理类告警（severity: info），非故障告警，Alertmanager 启用后应路由到低优先级渠道。
+
+## 🛡️ 可观测性治理（新服务接入）
+
+新服务上线的可观测性接入不再依赖人记忆，机制如下：
+
+| 层 | 机制 | 需要的操作 |
+| --- | --- | --- |
+| 指标（RED / Pod） | Beyla eBPF 自动发现 + kube-state-metrics | 零操作，遵守 label 约定即可 |
+| 可用性探测 | Blackbox Probe | **必须**在 `probes/` 添加 Probe（探 `/healthz`，参照现有文件格式） |
+| 兜底 | `ObservabilityCoverageGap` 自动发现遗漏 | 无需操作——有流量但无探测的服务 30 分钟后告警 |
+
+治理闭环（已实测验证）：Beyla 发现 party-helper-realtime / party-helper-web 有流量但无探测 → 告警 pending 自动点名 → 补充 Probe → probe_success=1、告警消除。
 
 告警当前仅在 Prometheus/Grafana 页面展示，未外发通知（Alertmanager 通知渠道待配置）。
 
@@ -173,7 +189,7 @@ kubectl scale deploy party-helper-api -n party-helper --replicas=1
 
 ## ⚠️ 已知限制与待办
 
-1. **端口规范（Service 端口 = Pod 端口，targetPort 统一名字引用 `http`）**：API 一律 `8000`（FastAPI 默认），Admin 一律 `80`（nginx 默认），PostgreSQL `5432`。即 drinkzen-api 8000、drinkzen-admin 80、party-helper-api 8000、party-helper-admin 80。本机 port-forward 分段独立于集群端口（drinkzen 18011/18012，party-helper 18021/18022，尾号 1=API、2=Admin）。
+1. **端口规范（Service 端口 = Pod 端口，targetPort 统一名字引用 `http`）**：API 一律 `8000`（FastAPI 默认），Admin 一律 `80`（nginx 默认），PostgreSQL `5432`。即 drinkzen-api 8000、drinkzen-admin 80、party-helper-api 8000、party-helper-admin 80、party-helper-realtime 8080、party-helper-web 80。本机 port-forward 分段独立于集群端口（drinkzen 18011/18012，party-helper 18021/18022，尾号 1=API、2=Admin）。
 2. **Admin SPA 两层探测**：SPA 前端对错误路由返回 200 + index.html（客户端渲染 404 页），属正常业务行为，不可由 HTTP 探测发现。因此两个 Admin 均分两层：
    - 第一层（进程存活）：nginx 精确匹配 `location = /healthz` 返回 JSON（非 SPA 兜底），Probe 用 `http_2xx_healthz`。**drinkzen-admin 与 party-helper-admin 均已上线**。
    - 第二层（部署完整性）：Probe `*-admin-index` 用 `http_2xx_index` 探 `/`，校验响应体含 SPA 挂载点 `<div id="app">`，可发现「进程活着但 index.html 损坏/白屏」。新增前端接入时注意 body 正则要与该项目 index.html 挂载点一致。
@@ -181,11 +197,12 @@ kubectl scale deploy party-helper-api -n party-helper --replicas=1
 3. **drinkzen-api 容器内 wget/curl 异常**：容器内网络工具探测不到自身 `/healthz`（K8s 探针与外部 Blackbox 探测均正常）。属镜像环境问题，不影响监控。
 4. **Phase 2 待办**：postgres-exporter（业务库指标）由业务项目部署；FastAPI 埋点 `/metrics` 视 Beyla 数据够用程度再定。
 
-## 🌍 环境注意事项（发行版差异）
+## 🌍 环境要求
 
-- **docker-desktop / 本地单节点集群**：kubeAPIServer、kubelet、kubeProxy 证书为自签，抓取会持续报 TLS 错误——values.yaml 中已禁用这些组件的 ServiceMonitor。节点指标由 node-exporter DaemonSet 提供，不受影响。
-- **WSL2**：NodePort 无法从 Windows 直接访问，一律使用 `kubectl port-forward`。
 - **Beyla 内核要求**：节点内核 >= 5.8 且支持 BTF（主流容器运行时默认满足）。
+- **访问方式**：统一 `kubectl port-forward`，不依赖 NodePort/LoadBalancer 等特定网络模型。
+- **节点指标**：node-exporter 当前禁用（单节点开发环境价值有限，容器级指标由 kubelet/cAdvisor 提供）；多节点或生产环境建议在 values.yaml 中开启。
+- **控制面组件抓取**：apiserver/kubelet 等若因集群证书问题抓取失败，可在 values.yaml 中按需开关对应 ServiceMonitor。
 
 ## 📚 参考
 

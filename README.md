@@ -59,7 +59,7 @@
 
 ### 前置条件
 
-- Kubernetes 集群（推荐 K3s/K8s 1.28+）
+- Kubernetes 集群（1.25+，任意发行版均可）
 - Helm 3.x
 - DeepSeek API Key（[获取地址](https://platform.deepseek.com/)）
 
@@ -108,7 +108,7 @@ helm upgrade --install kagent \
 
 ### 4. 访问服务
 
-> **WSL2 用户注意**：NodePort 端口无法从 Windows 直接访问，必须使用 `port-forward`。
+> 统一使用 `kubectl port-forward` 访问服务，不依赖 NodePort/LoadBalancer 等特定网络模型。
 
 ```bash
 # Grafana（监控面板）
@@ -308,7 +308,7 @@ kubectl delete ns monitoring
 
 | 组件 | 存储方式 | Scale 安全性 |
 |------|---------|-------------|
-| PostgreSQL | PVC (local-path) | ✅ PVC 在 scale 后保留 |
+| PostgreSQL | PVC（集群默认 StorageClass） | ✅ PVC 在 scale 后保留 |
 | Agent CRDs | etcd (K8s 内置) | ✅ 不受 scale 影响 |
 | ModelConfig | etcd + Helm | ✅ 不受 scale 影响 |
 | Session 数据 | PostgreSQL | ✅ PVC 保护 |

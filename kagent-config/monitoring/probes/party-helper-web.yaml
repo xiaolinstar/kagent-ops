@@ -1,0 +1,24 @@
+# Blackbox Probe - party-helper Web 前端（进程存活）
+# nginx 已提供真实 /healthz（application/json，非 SPA 兜底）
+# 注：web 的 / 为 489 字节静态页（非 SPA 挂载点模式），暂不适用 index 完整性探测
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: party-helper-web
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: party-helper
+    app.kubernetes.io/component: frontend
+spec:
+  prober:
+    url: blackbox-exporter-prometheus-blackbox-exporter.monitoring.svc.cluster.local:19115
+  interval: 30s
+  module: http_2xx_healthz
+  scrapeTimeout: 10s
+  targets:
+    staticConfig:
+      static:
+        - http://party-helper-web.party-helper.svc.cluster.local:80/healthz
+      labels:
+        namespace: party-helper
+        service: party-helper-web

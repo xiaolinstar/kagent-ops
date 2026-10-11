@@ -129,7 +129,7 @@ observability-agent:
 ## 注意事项
 
 1. **不要通过 UI 创建 Agent**：否则 scale 后可能出现 "already exists" 冲突
-2. **WSL2 环境**：NodePort 端口无法从 Windows 直接访问，必须使用 `port-forward`
+2. **访问方式**：统一使用 `kubectl port-forward`，不依赖特定发行版的网络模型
 3. **数据持久化**：PostgreSQL 和 Prometheus 均使用 PVC（Prometheus 保留 15 天），重启不丢数据
 
 ## 参考链接

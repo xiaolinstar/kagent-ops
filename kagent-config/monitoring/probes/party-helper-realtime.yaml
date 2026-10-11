@@ -1,0 +1,23 @@
+# Blackbox Probe - party-helper 实时服务（进程存活）
+# uvicorn 服务：/ 返回 404，必须显式探测 /healthz（JSON 200）
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: party-helper-realtime
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: party-helper
+    app.kubernetes.io/component: realtime
+spec:
+  prober:
+    url: blackbox-exporter-prometheus-blackbox-exporter.monitoring.svc.cluster.local:19115
+  interval: 30s
+  module: http_2xx_healthz
+  scrapeTimeout: 10s
+  targets:
+    staticConfig:
+      static:
+        - http://party-helper-realtime.party-helper.svc.cluster.local:8080/healthz
+      labels:
+        namespace: party-helper
+        service: party-helper-realtime

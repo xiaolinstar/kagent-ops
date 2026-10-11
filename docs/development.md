@@ -4,21 +4,17 @@
 
 ### 前置条件
 
-- Kubernetes 集群（K3s 或 K8s 1.28+）
+- Kubernetes 集群（1.25+，任意发行版均可）
 - Helm 3.x
 - kubectl 命令行工具
 - DeepSeek API Key（[获取地址](https://platform.deepseek.com/)）
 
-### 本地开发集群推荐
+### 本地开发集群
 
-**使用 K3s（轻量级）：**
-```bash
-curl -sfL https://get.k3s.io | sh -
-export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-```
+任意标准 Kubernetes 发行版均可（kind、minikube、K3s、Docker Desktop 等），本项目不依赖特定发行版：
 
-**使用 kind（Docker 内运行）：**
 ```bash
+# 以 kind 为例
 kind create cluster --name kagent-dev
 ```
 

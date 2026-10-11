@@ -65,7 +65,7 @@ kagent 是一个基于大语言模型的 Kubernetes 智能运维助手系统，�
 
 - **作用**：存储会话数据和配置信息
 - **命名空间**：kagent
-- **存储**：PVC（local-path），500Mi
+- **存储**：PVC（集群默认 StorageClass），500Mi
 - **持久化**：Scale 后 PVC 保留，数据安全
 
 ### 5. MCP Tools（工具服务）

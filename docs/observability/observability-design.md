@@ -37,7 +37,7 @@
 | 影响 | 流量本身是通的，但同一服务存在 8021/8022 两个数字：外部调用走 8022、Pod 内是 8021，文档与脚本易混淆；后续改动若只改其一（如 Probe 改指 Service 端口、或调 port 忘改 targetPort）会引入真实故障 |
 | 处理建议 | 统一为 8021（Service `port 8022→8021`）；注意已有 `LoadBalancer:8022` 与 `NodePort 32593` 在用，改动需同步所有调用方。最低成本方案：给 Service 端口命名（`name: http`）并在文档标注映射关系 |
 
-> RUNBOOK 另记录两条环境类已知限制（drinkzen-api 容器内 wget/curl 异常、本地单节点自签证书禁抓 apiserver），属环境现象而非设计问题，见 `RUNBOOK.md`。
+> RUNBOOK 另记录一条环境类已知限制（drinkzen-api 容器内 wget/curl 异常），属环境现象而非设计问题，见 `RUNBOOK.md`。
 
 ## 2. 预期效果
 

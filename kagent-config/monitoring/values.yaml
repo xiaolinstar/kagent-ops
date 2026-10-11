@@ -25,7 +25,7 @@ prometheus:
           resources:
             requests:
               storage: 10Gi
-          # storageClassName: local-path  # 如需指定，取消注释
+          # storageClassName: <name>  # 如需指定 StorageClass，取消注释并填入名称
     
     # 资源限制
     resources:
@@ -124,7 +124,7 @@ alertmanager:
   enabled: false  # 暂时禁用，需要时再启用
 
 # ============================================================
-# API Server（禁用 - 本地 K3s 自签证书导致抓取失败）
+# API Server（自签证书环境抓取可能报 TLS 错误，按集群实际情况开关）
 # ============================================================
 kubeAPIServer:
   enabled: false
