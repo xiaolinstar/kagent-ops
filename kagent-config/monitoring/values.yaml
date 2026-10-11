@@ -135,17 +135,31 @@ kubeAPIServer:
 kubelet:
   enabled: true
 
+# 控制面组件抓取（按集群环境适配）：
+# docker-desktop 单机环境将控制面指标绑死在 127.0.0.1（上游安全加固），
+# 节点 IP 不可达 → up 恒为 0 → 默认告警永久误报，故关闭。
+# 迁移到控制面指标可达的生产集群时改回 true 即可（下方 defaultRules 同步恢复）。
 kubeControllerManager:
-  enabled: true
+  enabled: false
 
 kubeScheduler:
-  enabled: true
+  enabled: false
 
 kubeProxy:
-  enabled: true
+  enabled: false
 
 kubeEtcd:
-  enabled: true
+  enabled: false
+
+# 对应的默认告警规则组必须一并关闭：
+# KubeControllerManagerDown / KubeProxyDown / etcdMembersDown 等基于 absent()，
+# 抓取目标删除后 up 序列消失 → absent 恒真 → 规则反而永久 firing。
+defaultRules:
+  rules:
+    kubeControllerManager: false
+    kubeScheduler: false
+    kubeProxy: false
+    etcd: false
 
 # ============================================================
 # 命名空间
