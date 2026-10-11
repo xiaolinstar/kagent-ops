@@ -145,6 +145,10 @@ sum by (k8s_deployment_name) (
 | HttpProbeFailed | `probe_success == 0` | 2 分钟 | warning |
 | HttpProbeSlow | P95 探测延迟 > 1s | 5 分钟 | warning |
 | TlsCertExpiringSoon | 证书 < 7 天过期 | 1 小时 | warning |
+| PodRestartBurst | 容器 30 分钟内重启 > 3 次 | 5 分钟 | warning |
+| PodOOMKilled | 最近一次终止原因为 OOMKilled | 即时 | warning |
+
+> Pod 健康类规则见 `prometheus-rules/pod-health.yaml`（指标来源 kube-state-metrics）。
 
 告警当前仅在 Prometheus/Grafana 页面展示，未外发通知（Alertmanager 通知渠道待配置）。
 

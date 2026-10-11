@@ -1,0 +1,44 @@
+# Prometheus 告警规则 - Pod 健康（重启风暴 / OOM）
+# 指标来源：kube-state-metrics（kube-prometheus-stack 自带）
+# 依据：docs/observability/observability-design.md §2.3 告警覆盖
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pod-health
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: drinkzen-party-helper
+spec:
+  groups:
+    - name: drinkzen-party-helper.pod-health
+      interval: 30s
+      rules:
+        # 重启风暴：30 分钟内重启超过 3 次，持续 5 分钟触发
+        - alert: PodRestartBurst
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace=~"drinkzen|party-helper"}[30m]) > 3
+          for: 5m
+          labels:
+            severity: warning
+            team: sre
+          annotations:
+            summary: "容器重启风暴 ({{ $labels.namespace }}/{{ $labels.pod }})"
+            description: |
+              容器 {{ $labels.container }}（Pod {{ $labels.namespace }}/{{ $labels.pod }}）
+              30 分钟内重启 {{ $value | humanize }} 次，疑似崩溃循环。
+              请排查：kubectl describe pod {{ $labels.pod }} -n {{ $labels.namespace }}，
+              关注退出码、OOM 事件与上游依赖（DB / LLM API）。
+
+        # OOMKilled：最近一次容器终止原因为内存不足，立即告警
+        - alert: PodOOMKilled
+          expr: |
+            kube_pod_container_status_last_terminated_reason{namespace=~"drinkzen|party-helper", reason="OOMKilled"} == 1
+          labels:
+            severity: warning
+            team: sre
+          annotations:
+            summary: "容器被 OOMKilled ({{ $labels.namespace }}/{{ $labels.pod }})"
+            description: |
+              容器 {{ $labels.container }}（Pod {{ $labels.namespace }}/{{ $labels.pod }}）
+              最近一次因内存不足被终止。
+              请检查内存 limit 是否低于实际用量，必要时调高 resources.limits.memory。
