@@ -12,9 +12,13 @@ spec:
     - name: drinkzen-party-helper.http
       interval: 30s
       rules:
-        # 探测失败：连续 2 分钟不通，触发告警
+        # 探测失败：连续 2 分钟不通，且目标 Service 仍存在（排除监控配置过期，
+        # 后者由 ObservabilityTargetStale 单独告警，见 observability-coverage.yaml）
         - alert: HttpProbeFailed
-          expr: probe_success{namespace=~"drinkzen|party-helper"} == 0
+          expr: |
+            probe_success{namespace=~"drinkzen|party-helper"} == 0
+            and on (namespace, service)
+            kube_service_info{namespace=~"drinkzen|party-helper"}
           for: 2m
           labels:
             severity: warning

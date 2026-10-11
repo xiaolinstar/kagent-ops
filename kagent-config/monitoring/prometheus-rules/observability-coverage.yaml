@@ -1,7 +1,8 @@
 # Prometheus 告警规则 - 可观测性覆盖治理
-# 原理：Beyla 通过 eBPF 自动发现所有有 HTTP 流量的部署（事实源），
-#      与 Blackbox 探测清单（probe_success）对比；任何"有流量但无探测"的服务自动告警。
-# 作用：新服务上线后忘记配 Probe 不再依赖人记忆，由系统自动发现遗漏。
+# 1) ObservabilityCoverageGap：以 Beyla eBPF 自动发现为事实源（谁有真实流量），
+#    与 Blackbox 探测清单（probe_success）对比，有流量但无探测的服务自动告警。
+# 2) ObservabilityTargetStale：探测失败且目标 Service 已不存在，判定为监控配置
+#    过期（服务删除/改名后 Probe 未同步清理），与 HttpProbeFailed 互斥分流。
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -43,3 +44,23 @@ spec:
               （Beyla 自动发现），但没有配置任何 Blackbox 探测——服务挂掉不会触发可用性告警。
               补充方式：在 kagent-config/monitoring/probes/ 添加对应 Probe
               （探 /healthz，参照现有文件格式），然后 kubectl apply。
+
+        # 目标漂移：探测持续失败，且目标 Service 已不存在 → 判定为监控配置过期
+        # （服务已删除/改名，Probe 还指着旧地址），而非服务故障；
+        # 与 HttpProbeFailed 的"目标存在"前置条件互为补充，消除假故障告警
+        - alert: ObservabilityTargetStale
+          expr: |
+            probe_success{namespace=~"drinkzen|party-helper"} == 0
+            unless on (namespace, service)
+            kube_service_info{namespace=~"drinkzen|party-helper"}
+          for: 5m
+          labels:
+            severity: warning
+            team: sre
+          annotations:
+            summary: "探测目标已失效 ({{ $labels.namespace }}/{{ $labels.service }})"
+            description: |
+              对 {{ $labels.namespace }}/{{ $labels.service }} 的探测持续失败，
+              且该 Service 在集群中已不存在——这是监控配置过期（服务已删除或改名），
+              不是服务故障。请在 kagent-config/monitoring/probes/ 中移除或更新对应 Probe，
+              然后 kubectl apply / kubectl delete。

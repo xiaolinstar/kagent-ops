@@ -144,12 +144,13 @@ sum by (k8s_deployment_name) (
 
 | 告警名 | 触发条件 | 持续时间 | 严重度 |
 | --- | --- | --- | --- |
-| HttpProbeFailed | `probe_success == 0` | 2 分钟 | warning |
+| HttpProbeFailed | `probe_success == 0` 且目标 Service 存在 | 2 分钟 | warning |
 | HttpProbeSlow | P95 探测延迟 > 1s | 5 分钟 | warning |
 | TlsCertExpiringSoon | 证书 < 7 天过期 | 1 小时 | warning |
 | PodRestartBurst | 容器 30 分钟内重启 > 3 次 | 5 分钟 | warning |
 | PodOOMKilled | 最近一次终止原因为 OOMKilled | 即时 | warning |
 | ObservabilityCoverageGap | 有流量但无探测的服务 | 30 分钟 | info |
+| ObservabilityTargetStale | 探测失败且目标 Service 已不存在 | 5 分钟 | warning |
 
 > Pod 健康类规则见 `prometheus-rules/pod-health.yaml`（指标来源 kube-state-metrics）。
 > `ObservabilityCoverageGap` 为治理类告警（severity: info），非故障告警，Alertmanager 启用后应路由到低优先级渠道。
@@ -162,9 +163,12 @@ sum by (k8s_deployment_name) (
 | --- | --- | --- |
 | 指标（RED / Pod） | Beyla eBPF 自动发现 + kube-state-metrics | 零操作，遵守 label 约定即可 |
 | 可用性探测 | Blackbox Probe | **必须**在 `probes/` 添加 Probe（探 `/healthz`，参照现有文件格式） |
-| 兜底 | `ObservabilityCoverageGap` 自动发现遗漏 | 无需操作——有流量但无探测的服务 30 分钟后告警 |
+| 漏配兜底 | `ObservabilityCoverageGap` 自动发现遗漏 | 无需操作——有流量但无探测的服务 30 分钟后告警 |
+| 配置过期兜底 | `ObservabilityTargetStale` 识别漂移 | 服务删除/改名后，探测失败且 Service 不存在 → 判"配置过期"（非故障），清理 `probes/` 对应文件 |
 
 治理闭环（已实测验证）：Beyla 发现 party-helper-realtime / party-helper-web 有流量但无探测 → 告警 pending 自动点名 → 补充 Probe → probe_success=1、告警消除。
+
+配置过期分流（已实测验证，负向验收）：指向不存在服务的探测 → `ObservabilityTargetStale` 告警而 `HttpProbeFailed` 静默；清理 Probe 后告警自动解除。HttpProbeFailed 已加"目标 Service 存在"前置条件（与 kube_service_info 交叉验证），不再对过期目标产生假故障告警。
 
 告警当前仅在 Prometheus/Grafana 页面展示，未外发通知（Alertmanager 通知渠道待配置）。
 
