@@ -77,7 +77,7 @@ kagent 是一个基于大语言模型的 Kubernetes 智能运维助手系统，�
 
 - **命名空间**：monitoring
 - **Prometheus**：指标收集和存储，15 天留存
-- **Grafana**：监控可视化，NodePort 31080
+- **Grafana**：监控可视化，`http://grafana.kagent.localhost:31080`
 - **kube-state-metrics**：K8s 对象指标
 
 ## Agent 架构
@@ -170,9 +170,9 @@ spec:
 
 | 服务 | 内部端口 | 外部访问方式 |
 |------|---------|-------------|
-| kagent-ui | 8080 | port-forward |
-| Grafana | 80 | NodePort 31080 |
-| Prometheus | 9090 | port-forward |
+| kagent-ui | 8080 | `http://ui.kagent.localhost:8080` |
+| Grafana | 80 | `http://grafana.kagent.localhost:31080` |
+| Prometheus | 9090 | `http://prom.kagent.localhost:9090` |
 
 ## 安全设计
 

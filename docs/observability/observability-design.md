@@ -35,7 +35,7 @@
 | 现象 | 容器监听 `8021`（uvicorn `--port 8021`），Service 对外却是 `port 8022 → targetPort 8021`（NodePort 32593），Blackbox Probe 直连 `8021` |
 | 根因 | 部署时端口规划未对齐，靠 `targetPort` 映射掩盖 |
 | 影响 | 流量本身是通的，但同一服务存在 8021/8022 两个数字：外部调用走 8022、Pod 内是 8021，文档与脚本易混淆；后续改动若只改其一（如 Probe 改指 Service 端口、或调 port 忘改 targetPort）会引入真实故障 |
-| 处理建议 | 统一为 8021（Service `port 8022→8021`）；注意已有 `LoadBalancer:8022` 与 `NodePort 32593` 在用，改动需同步所有调用方。最低成本方案：给 Service 端口命名（`name: http`）并在文档标注映射关系 |
+| 处理建议 | 统一为 8021（Service `port 8022→8021`）；注意已有 `LoadBalancer:8022` 与 `NodePort 32593` 在用，改动需同步所有调用方。最低成本方案：给 Service 端口命名（`name: http`）并在文档标注映射关系。**现状：已收敛**——端口统一为 8000（Service 端口 = Pod 端口，`targetPort` 名字引用 `http`，见 RUNBOOK 端口规范），Service 统一 ClusterIP，不再有 NodePort/LoadBalancer 对外暴露 |
 
 > RUNBOOK 另记录两条环境类已知限制（drinkzen-api 容器内 wget/curl 异常、本地单节点自签证书禁抓 apiserver），属环境现象而非设计问题，见 `RUNBOOK.md`。
 
@@ -174,7 +174,7 @@ flowchart LR
 ### 5.3 环境注意事项（发行版差异收口）
 
 - StorageClass：values 中 `storageClassName` 留空，使用集群默认；发行版差异不进方案正文
-- 访问方式：统一 `kubectl port-forward`；NodePort/LoadBalancer 仅作本地便捷选项
+- 访问方式：统一 `kubectl port-forward`；Service 统一 ClusterIP，不暴露 NodePort/LoadBalancer
 - 自签证书抓取失败（本地单节点常见）：维持 kubeAPIServer 抓取关闭的说明放 RUNBOOK 附录
 
 ## 6. 路线图
