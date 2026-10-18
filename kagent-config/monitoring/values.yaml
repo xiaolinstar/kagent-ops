@@ -65,8 +65,7 @@ prometheus:
 grafana:
   enabled: true
   
-  # 访问方式
-  # 改为 ClusterIP，访问统一使用 kubectl port-forward
+  # 访问方式：ClusterIP，本地通过 kubectl port-forward 访问（端口 31080）
   service:
     type: ClusterIP
   

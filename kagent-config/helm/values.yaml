@@ -42,7 +42,7 @@ controller:
 ui:
   enabled: true
   service:
-    type: NodePort
+    type: ClusterIP
     ports:
       port: 8080
 

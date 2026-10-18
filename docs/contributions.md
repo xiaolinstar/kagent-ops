@@ -120,6 +120,8 @@ func (s *Server) GetSetupStatus(w http.ResponseWriter, r *http.Request) {
 - 在官方文档的安装指南中添加 WSL2 注意事项
 - 或在 Helm values 中默认使用 ClusterIP + 推荐 port-forward
 
+> 本仓库已采用第二种方案（Service 统一 ClusterIP，本地一律 port-forward），可作为上游建议的实践依据。
+
 ---
 
 ### 3. Helm values 中 Agent 配置结构文档

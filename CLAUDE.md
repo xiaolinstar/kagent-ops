@@ -84,12 +84,17 @@ kubectl get agents -n kagent
 
 ### 访问服务
 
+> 本地访问统一使用 `port-forward`，URL 采用 `*.localhost` 语义子域名（RFC 6761，自动解析到 127.0.0.1，无需配置 DNS）。
+
 ```bash
-# kagent UI
+# kagent UI → http://ui.kagent.localhost:8080
 kubectl port-forward -n kagent svc/kagent-ui 8080:8080
 
-# Grafana
+# Grafana → http://grafana.kagent.localhost:31080
 kubectl port-forward -n monitoring svc/monitoring-grafana 31080:80
+
+# Prometheus → http://prom.kagent.localhost:9090
+kubectl port-forward -n monitoring svc/monitoring-kube-prometheus-prometheus 9090:9090
 ```
 
 ## 配置说明
@@ -129,7 +134,7 @@ observability-agent:
 ## 注意事项
 
 1. **不要通过 UI 创建 Agent**：否则 scale 后可能出现 "already exists" 冲突
-2. **访问方式**：统一使用 `kubectl port-forward`，不依赖特定发行版的网络模型
+2. **本地访问**：Service 统一为 ClusterIP，一律使用 `kubectl port-forward`，URL 采用 `*.localhost` 语义子域名（如 `http://ui.kagent.localhost:8080`）。
 3. **数据持久化**：PostgreSQL 和 Prometheus 均使用 PVC（Prometheus 保留 15 天），重启不丢数据
 
 ## 参考链接

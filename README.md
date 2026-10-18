@@ -20,7 +20,7 @@
 ┌─────────────────────────────────────────────────────────┐
 │                      kagent-ui                          │
 │                   (Web 交互界面)                         │
-│            http://localhost:8080                         │
+│       http://ui.kagent.localhost:8080                    │
 └──────────────────────┬──────────────────────────────────┘
                        │
 ┌──────────────────────▼──────────────────────────────────┐
@@ -108,17 +108,17 @@ helm upgrade --install kagent \
 
 ### 4. 访问服务
 
-> 统一使用 `kubectl port-forward` 访问服务，不依赖 NodePort/LoadBalancer 等特定网络模型。
+> **访问方式**：Service 统一为 ClusterIP，本地访问一律使用 `kubectl port-forward`。URL 采用 `*.localhost` 语义子域名（RFC 6761，自动解析到 127.0.0.1，无需配置 DNS）。
 
 ```bash
-# Grafana（监控面板）
-kubectl port-forward -n monitoring svc/monitoring-grafana 31080:80
-# 浏览器: http://localhost:31080
-# 账号: admin / admin
-
 # kagent UI（AI 运维助手）
 kubectl port-forward -n kagent svc/kagent-ui 8080:8080
-# 浏览器: http://localhost:8080
+# 浏览器: http://ui.kagent.localhost:8080
+
+# Grafana（监控面板）
+kubectl port-forward -n monitoring svc/monitoring-grafana 31080:80
+# 浏览器: http://grafana.kagent.localhost:31080
+# 账号: admin / admin
 ```
 
 > 以上命令会持续占用终端。如需后台运行，可加 `&` 或使用多个终端窗口。

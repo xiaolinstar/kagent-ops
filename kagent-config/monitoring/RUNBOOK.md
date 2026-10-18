@@ -100,6 +100,7 @@ kubectl get probes -n monitoring
 
 # 3. 探测指标：9 个探测目标应全部 probe_success = 1
 kubectl port-forward -n monitoring svc/monitoring-kube-prometheus-prometheus 9090:9090
+# 浏览器: http://prom.kagent.localhost:9090
 # 查询：probe_success{namespace=~"drinkzen|party-helper"}
 
 # 4. RED 指标已产生（Beyla）
@@ -110,7 +111,7 @@ kubectl port-forward -n monitoring svc/monitoring-kube-prometheus-prometheus 909
 
 # 6. Grafana Dashboard
 kubectl port-forward -n monitoring svc/monitoring-grafana 31080:80
-# http://localhost:31080（admin/admin）→ Business 目录 → Business Services Overview
+# http://grafana.kagent.localhost:31080（admin/admin）→ Business 目录 → Business Services Overview
 ```
 
 ## 🔍 常用 PromQL
@@ -203,6 +204,8 @@ kubectl scale deploy party-helper-api -n party-helper --replicas=1
 
 ## 🌍 环境要求
 
+- **docker-desktop / 本地单节点集群**：kubeAPIServer、kubelet、kubeProxy 证书为自签，抓取会持续报 TLS 错误——values.yaml 中已禁用这些组件的 ServiceMonitor。节点指标由 node-exporter DaemonSet 提供，不受影响。
+- **WSL2**：NodePort 无法从 Windows 直接访问（本项目 Service 已统一 ClusterIP），一律使用 `kubectl port-forward`。
 - **Beyla 内核要求**：节点内核 >= 5.8 且支持 BTF（主流容器运行时默认满足）。
 - **访问方式**：统一 `kubectl port-forward`，不依赖 NodePort/LoadBalancer 等特定网络模型。
 - **节点指标**：node-exporter 当前禁用（单节点开发环境价值有限，容器级指标由 kubelet/cAdvisor 提供）；多节点或生产环境建议在 values.yaml 中开启。

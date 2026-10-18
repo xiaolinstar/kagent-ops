@@ -90,8 +90,7 @@ Prometheus + Grafana 配置：
 # Grafana 配置
 grafana:
   service:
-    type: NodePort
-    nodePort: 31080
+    type: ClusterIP
   adminUser: admin
   adminPassword: admin
   anonymous:
