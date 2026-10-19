@@ -1,0 +1,4 @@
+install:
+  defaultModelProvider: deepseek
+  kagent:
+    valuesFiles: [kagent-install-values.yaml]

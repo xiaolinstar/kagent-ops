@@ -1,8 +1,11 @@
 # kagent Helm Values 配置
 # 文档: https://www.kagent.dev/docs/kagent/resources/helm
 #
+# helm upgrade --install kagent-crds oci://ghcr.io/kagent-dev/kagent/helm/kagent-crds \
+#   -n kagent --create-namespace --version 1.0.0-alpha13
+#
 # helm upgrade --install kagent oci://ghcr.io/kagent-dev/kagent/helm/kagent \
-#   -n kagent --create-namespace --version 0.10.1 --values kagent-config/helm/values.yaml
+#   -n kagent --version 1.0.0-alpha13 --values kagent-config/helm/values.yaml
 
 fullnameOverride: kagent
 
@@ -21,86 +24,60 @@ providers:
       baseUrl: "https://api.deepseek.com/v1"
 
 # ============================================================
+# Application Configuration (alpha13 新增)
+# ============================================================
+config:
+  server:
+    auth:
+      mode: insecure
+  logging:
+    level: info
+  substrate:
+    apiEndpoint: "dns:///localhost:443"
+    routerUrl: "http://localhost:80"
+
+# ============================================================
 # Controller
 # ============================================================
 controller:
   replicas: 1
-  loglevel: info
-  auth:
-    mode: unsecure
   resources:
     requests:
       cpu: 100m
-      memory: 256Mi
+      memory: 128Mi
     limits:
-      cpu: "1"
-      memory: 1Gi
+      cpu: "2"
+      memory: 512Mi
 
 # ============================================================
 # UI
 # ============================================================
 ui:
-  enabled: true
+  replicas: 1
   service:
     type: ClusterIP
     ports:
       port: 8080
 
 # ============================================================
-# Database (内置 PostgreSQL + PVC 持久化)
+# Database (外部 PostgreSQL — 连接串 Secret)
 # ============================================================
+# alpha13 移除了 bundled postgres，需提前创建 kagent-postgres Secret：
+#   kubectl create secret generic kagent-postgres \
+#     --from-literal=connectionString="postgres://kagent:kagent@kagent-postgresql.kagent.svc.cluster.local:5432/kagent?sslmode=disable" \
+#     -n kagent
 database:
   postgres:
-    url: ""
-    bundled:
-      enabled: true
-      image:
-        tag: "18.6-alpine3.23"
-      # PVC 持久化存储 — scale to 0 后数据不丢失
-      # 注意：部分默认 StorageClass 不支持在线扩容，容量保持与初始安装一致
-      storage: 500Mi
-      storageClassName: ""   # 使用集群默认 StorageClass
-
-# ============================================================
-# 内置 Agents 开关（注意：根级别配置，非嵌套在 agents 下）
-# ============================================================
-k8s-agent:
-  enabled: true
-
-promql-agent:
-  enabled: true
-
-helm-agent:
-  enabled: true
-
-observability-agent:
-  enabled: true
-
-# 以下 Agent 暂时禁用
-
-istio-agent:
-  enabled: false
-
-argo-rollouts-agent:
-  enabled: false
-
-cilium-debug-agent:
-  enabled: false
-
-cilium-manager-agent:
-  enabled: false
-
-cilium-policy-agent:
-  enabled: false
-
-kgateway-agent:
-  enabled: false
+    connectionStringSecretRef:
+      name: kagent-postgres
+      key: connectionString
 
 # ============================================================
 # MCP & Tools
 # ============================================================
 kmcp:
   enabled: true
+
 kagent-tools:
   enabled: true
 
@@ -109,6 +86,10 @@ grafana-mcp:
   enabled: true
   grafana:
     url: "http://monitoring-grafana.monitoring:80"
-  args:
-    - "-allowed-hosts"
-    - "kagent-grafana-mcp.kagent:8000,kagent-grafana-mcp.kagent,localhost:8000"
+
+# ============================================================
+# Agents (alpha13 变更)
+# ============================================================
+# alpha13 不再通过 chart values 控制内置 Agent 开关。
+# Agent 需通过 CRD 单独创建，升级后执行：
+#   kubectl apply -f kagent-config/crds/agents.yaml

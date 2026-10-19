@@ -1,0 +1,15 @@
+# DeepSeek Provider Configuration for kagent v1.0.0-alpha13
+# 使用方法：
+# 1. 将 YOUR_DEEPSEEK_API_KEY 替换为你的实际 API Key
+# 2. 创建 Secret: kubectl apply -f deepseek-secret.yaml --context kind-kagent
+# 3. 更新 kagent: helm upgrade kagent ... --values deepseek-values.yaml
+
+providers:
+  default: openAI
+  openAI:
+    provider: OpenAI
+    model: "deepseek-flash"
+    apiKeySecretRef: kagent-deepseek
+    apiKeySecretKey: DEEPSEEK_API_KEY
+    config:
+      baseUrl: "https://api.deepseek.com"
