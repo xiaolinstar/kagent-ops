@@ -84,6 +84,8 @@ kagent-tools:
 # Grafana MCP - 启用（连接本地 Grafana）
 grafana-mcp:
   enabled: true
+  image:
+    pullPolicy: IfNotPresent
   grafana:
     url: "http://monitoring-grafana.monitoring:80"
 
