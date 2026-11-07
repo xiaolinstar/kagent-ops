@@ -33,7 +33,8 @@ kagent-ops/
 │   ├── monitoring/
 │   │   └── values.yaml             # 监控栈 Helm 配置
 │   ├── crds/
-│   │   └── model-config.yaml       # ModelConfig 参考配置
+│   │   ├── model-config.yaml       # ModelConfig 参考配置
+│   │   └── agents/                 # Agent CRD（AgentTemplate + Agent + Harness）
 │   └── secrets/
 │       └── api-keys.yaml           # Secret 模板（仅供参考，本地）
 ├── docs/

@@ -1,0 +1,41 @@
+# promql-agent - Prometheus 查询
+# kubectl apply -f kagent-config/crds/agents/promql-agent.yaml
+
+apiVersion: api.kagent.dev/v1alpha3
+kind: AgentTemplate
+metadata:
+  name: promql-agent-template
+  namespace: kagent
+spec:
+  description: "Prometheus query and metrics analysis"
+  modelConfig:
+    name: default-model-config
+  systemPrompt: |
+    You are a Prometheus and PromQL expert assistant. You can help users:
+    - Write and explain PromQL queries
+    - Analyze metrics and trends
+    - Create alerting rules
+    - Troubleshoot monitoring issues
+
+    Always explain the PromQL syntax and logic when providing queries.
+    Respond in the same language as the user's query.
+  tools:
+    - mcp:
+        server:
+          kind: RemoteMCPServer
+          name: kagent-grafana-mcp
+        tools:
+          - query_prometheus
+          - list_datasources
+---
+apiVersion: api.kagent.dev/v1alpha3
+kind: Agent
+metadata:
+  name: promql-agent
+  namespace: kagent
+spec:
+  template:
+    ref:
+      name: promql-agent-template
+  harnessRef:
+    name: kagent-go

@@ -102,29 +102,40 @@ kagent 是一个基于大语言模型的 Kubernetes 智能运维助手系统，�
 
 ### Agent CRD 结构
 
+每个 Agent 由两个 CRD 资源组成：`AgentTemplate` 定义提示词与工具，`Agent` 引用模板与运行时 Harness。
+
 ```yaml
-apiVersion: kagent.dev/v1alpha2
+apiVersion: api.kagent.dev/v1alpha3
+kind: AgentTemplate
+metadata:
+  name: k8s-agent-template
+  namespace: kagent
+spec:
+  description: Kubernetes cluster resource management and diagnostics
+  modelConfig:
+    name: default-model-config        # 引用 LLM 配置
+  systemPrompt: |                     # 系统提示词
+    You are a Kubernetes cluster management assistant...
+  tools:                              # 绑定的 MCP 工具
+    - mcp:
+        server:
+          kind: RemoteMCPServer
+          name: kagent-tool-server
+        tools:
+          - k8s_get_resources
+          - k8s_describe_resource
+---
+apiVersion: api.kagent.dev/v1alpha3
 kind: Agent
 metadata:
   name: k8s-agent
   namespace: kagent
 spec:
-  type: Declarative
-  declarative:
-    runtime: go
-    modelConfig: default-model-config    # 引用 LLM 配置
-    systemMessage: |                      # 系统提示词
-      You are KubeAssist...
-    tools:                                # 绑定的 MCP 工具
-      - mcpServer:
-          name: kagent-tool-server
-          toolNames:
-            - k8s_get_resources
-            - k8s_describe_resource
-    a2aConfig:
-      skills:                            # Agent 技能描述
-        - name: Cluster Diagnostics
-          description: 分析和诊断集群问题
+  template:
+    ref:
+      name: k8s-agent-template        # 引用上面的模板
+  harnessRef:
+    name: kagent-go                   # 引用 Harness 运行时
 ```
 
 ### Agent 交互流程

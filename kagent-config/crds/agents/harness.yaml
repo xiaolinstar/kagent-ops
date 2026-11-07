@@ -1,0 +1,17 @@
+# Harness - kagent Go runtime
+# kubectl apply -f kagent-config/crds/agents/harness.yaml
+
+apiVersion: api.kagent.dev/v1alpha3
+kind: Harness
+metadata:
+  name: kagent-go
+  namespace: kagent
+spec:
+  kagent: {}
+  workload:
+    image: ghcr.io/kagent-dev/kagent/controller@sha256:3a84dfc2bb0198e8087605bcf47303f781da58a9426b03af23c5402278f18a07
+  substrate:
+    workerPoolRef:
+      name: kagent-default
+    snapshotPolicy:
+      location: /tmp/snapshots

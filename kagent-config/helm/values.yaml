@@ -92,4 +92,4 @@ grafana-mcp:
 # ============================================================
 # alpha13 不再通过 chart values 控制内置 Agent 开关。
 # Agent 需通过 CRD 单独创建，升级后执行：
-#   kubectl apply -f kagent-config/crds/agents.yaml
+#   kubectl apply -f kagent-config/crds/agents/

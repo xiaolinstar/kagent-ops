@@ -28,7 +28,8 @@ kagent-ops/
 │   │   ├── prometheus-rules/       # HTTP 可用性告警规则
 │   │   └── dashboards/             # Grafana Dashboard（ConfigMap 自动加载）
 │   └── crds/
-│       └── model-config.yaml       # ModelConfig 参考配置
+│       ├── model-config.yaml       # ModelConfig 参考配置
+│       └── agents/                 # Agent CRD（AgentTemplate + Agent + Harness）
 ├── docs/
 │   ├── architecture.md             # 架构设计文档
 │   ├── development.md              # 开发者文档
