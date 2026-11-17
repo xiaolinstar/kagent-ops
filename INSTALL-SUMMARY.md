@@ -171,7 +171,7 @@ export https_proxy=http://127.0.0.1:端口
 
 1. **创建 Agent CRD** (v1alpha3 格式)
    ```bash
-   kubectl apply -f agents.yaml --context kind-kagent
+   kubectl apply -f kagent-config/crds/agents/ --context kind-kagent
    ```
 
 2. **测试 Agent 对话**

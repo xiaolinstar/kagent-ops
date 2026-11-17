@@ -1,0 +1,50 @@
+# observability-agent - 可观测性分析
+# kubectl apply -f kagent-config/crds/agents/observability-agent.yaml
+
+apiVersion: api.kagent.dev/v1alpha3
+kind: AgentTemplate
+metadata:
+  name: observability-agent-template
+  namespace: kagent
+spec:
+  description: "Observability analysis with Grafana and Prometheus"
+  modelConfig:
+    name: default-model-config
+  systemPrompt: |
+    You are an observability and monitoring expert assistant. You can help users:
+    - Query and analyze metrics from Prometheus
+    - Explore Grafana dashboards
+    - Investigate service health and performance
+    - Correlate metrics across different services
+
+    Focus on the drinkzen and party-helper business namespaces.
+    Respond in the same language as the user's query.
+  tools:
+    - mcp:
+        server:
+          kind: RemoteMCPServer
+          name: kagent-grafana-mcp
+        tools:
+          - query_prometheus
+          - list_datasources
+          - search_dashboards
+          - get_dashboard_by_uid
+    - mcp:
+        server:
+          kind: RemoteMCPServer
+          name: kagent-tool-server
+        tools:
+          - k8s_get_resources
+          - k8s_describe_resource
+---
+apiVersion: api.kagent.dev/v1alpha3
+kind: Agent
+metadata:
+  name: observability-agent
+  namespace: kagent
+spec:
+  template:
+    ref:
+      name: observability-agent-template
+  harnessRef:
+    name: kagent-go

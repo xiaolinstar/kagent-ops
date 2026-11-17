@@ -1,0 +1,45 @@
+# helm-agent - Helm Chart 管理
+# kubectl apply -f kagent-config/crds/agents/helm-agent.yaml
+
+apiVersion: api.kagent.dev/v1alpha3
+kind: AgentTemplate
+metadata:
+  name: helm-agent-template
+  namespace: kagent
+spec:
+  description: "Helm chart management and operations"
+  modelConfig:
+    name: default-model-config
+  systemPrompt: |
+    You are a Helm chart management assistant. You can help users:
+    - List and inspect Helm releases
+    - View chart values and history
+    - Perform upgrades and rollbacks
+    - Manage Helm repositories
+
+    Always explain the impact of Helm operations before executing them.
+    Respond in the same language as the user's query.
+  tools:
+    - mcp:
+        server:
+          kind: RemoteMCPServer
+          name: kagent-tool-server
+        tools:
+          - helm_list_releases
+          - helm_get_release
+          - helm_repo_add
+          - helm_repo_update
+          - helm_uninstall
+          - helm_upgrade
+---
+apiVersion: api.kagent.dev/v1alpha3
+kind: Agent
+metadata:
+  name: helm-agent
+  namespace: kagent
+spec:
+  template:
+    ref:
+      name: helm-agent-template
+  harnessRef:
+    name: kagent-go
