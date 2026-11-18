@@ -1,146 +1,17 @@
-# kagent-ops - K8s AI 运维助手配置与实践
+# 项目协作说明
 
-## 项目概述
+本仓库是 kagent 的部署和运维配置仓库，不是上游源码。
 
-本仓库是 [kagent](https://github.com/kagent-dev/kagent) 的**配置与运维实践仓库**（非上游源码）。
-
-- **kagent**：开源 Kubernetes AI 运维助手项目
-- **kagent-ops**：本项目，包含 Helm values、监控配置、部署文档和 SRE 实践指南
-
-## 项目结构
-
-```
-kagent-ops/
-├── .env.example                    # API Key 模板
-├── .env                            # API Key（不提交到 git）
-├── .gitignore
-├── README.md                       # 项目主文档
-├── CLAUDE.md                       # 本文件
-├── kagent-config/
-│   ├── helm/
-│   │   └── values.yaml             # kagent Helm 配置
-│   ├── monitoring/
-│   │   ├── values.yaml             # kube-prometheus-stack Helm 配置
-│   │   ├── blackbox-values.yaml    # blackbox-exporter 独立 chart 配置
-│   │   ├── beyla-values.yaml       # Beyla eBPF 零插桩 RED 配置
-│   │   ├── RUNBOOK.md              # 业务服务可观测性部署 Runbook
-│   │   ├── probes/                 # Probe CRD（drinkzen / party-helper）
-│   │   ├── prometheus-rules/       # HTTP 可用性告警规则
-│   │   └── dashboards/             # Grafana Dashboard（ConfigMap 自动加载）
-│   └── crds/
-│       ├── model-config.yaml       # ModelConfig 参考配置
-│       └── agents/                 # Agent CRD（AgentTemplate + Agent + Harness）
-├── docs/
-│   ├── architecture.md             # 架构设计文档
-│   ├── development.md              # 开发者文档
-│   ├── contributions.md            # 社区贡献计划
-│   └── observability/
-│       ├── observability-design.md # 业务可观测性总体设计（Phase 1 指标）
-│       └── slo-sli-error-budget.md # SLO/SLI/Error Budget 实践
-```
-
-## 常用命令
-
-### 部署操作
-
-```bash
-# 配置 API Key
-cp .env.example .env
-# 编辑 .env 填入真实的 DEEPSEEK_API_KEY
-
-# 部署监控栈
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-kubectl create namespace monitoring
-helm install monitoring prometheus-community/kube-prometheus-stack \
-  -n monitoring --values kagent-config/monitoring/values.yaml
-
-# 部署 kagent
-kubectl create namespace kagent --dry-run=client -o yaml | kubectl apply -f -
-kubectl create secret generic kagent-deepseek \
-  --from-literal=DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2) \
-  -n kagent --dry-run=client -o yaml | kubectl apply -f -
-
-helm upgrade --install kagent-crds \
-  oci://ghcr.io/kagent-dev/kagent/helm/kagent-crds \
-  -n kagent --create-namespace --version 0.10.1
-
-helm upgrade --install kagent \
-  oci://ghcr.io/kagent-dev/kagent/helm/kagent \
-  -n kagent --version 0.10.1 --values kagent-config/helm/values.yaml
-```
-
-### 服务管理
-
-```bash
-# 临时停止（保留数据）
-kubectl scale deployment -n kagent --all --replicas=0
-
-# 恢复服务
-kubectl scale deployment -n kagent --all --replicas=1
-
-# 查看状态
-kubectl get pods -n kagent
-kubectl get agents -n kagent
-```
-
-### 访问服务
-
-> 本地访问统一使用 `port-forward`，URL 采用 `*.localhost` 语义子域名（RFC 6761，自动解析到 127.0.0.1，无需配置 DNS）。
-
-```bash
-# kagent UI → http://ui.kagent.localhost:8080
-kubectl port-forward -n kagent svc/kagent-ui 8080:8080
-
-# Grafana → http://grafana.kagent.localhost:31080
-kubectl port-forward -n monitoring svc/monitoring-grafana 31080:80
-
-# Prometheus → http://prom.kagent.localhost:9090
-kubectl port-forward -n monitoring svc/monitoring-kube-prometheus-prometheus 9090:9090
-```
-
-## 配置说明
-
-### LLM Provider 配置
-
-编辑 `kagent-config/helm/values.yaml`：
-
-```yaml
-providers:
-  default: openAI
-  openAI:
-    provider: OpenAI
-    model: "deepseek-flash"
-    apiKeySecretRef: kagent-deepseek
-    apiKeySecretKey: DEEPSEEK_API_KEY
-    config:
-      baseUrl: "https://api.deepseek.com/v1"
-```
-
-支持的 Provider：OpenAI（兼容 DeepSeek）、Anthropic、AzureOpenAI、Ollama、Gemini
-
-### Agent 启用/禁用
-
-```yaml
-# 根级别配置（不是嵌套在 agents 下）
-k8s-agent:
-  enabled: true
-promql-agent:
-  enabled: true
-helm-agent:
-  enabled: true
-observability-agent:
-  enabled: true
-```
-
-## 注意事项
-
-1. **不要通过 UI 创建 Agent**：否则 scale 后可能出现 "already exists" 冲突
-2. **本地访问**：Service 统一为 ClusterIP，一律使用 `kubectl port-forward`，URL 采用 `*.localhost` 语义子域名（如 `http://ui.kagent.localhost:8080`）。
-3. **数据持久化**：PostgreSQL 和 Prometheus 均使用 PVC（Prometheus 保留 15 天），重启不丢数据
-
-## 参考链接
-
-- [kagent 官方文档](https://www.kagent.dev/docs)
-- [kagent GitHub](https://github.com/kagent-dev/kagent)
-- [Helm 配置参考](https://www.kagent.dev/docs/kagent/resources/helm)
-- [DeepSeek API](https://platform.deepseek.com/)
+- 当前基线：kagent/CRD/CLI 1.0.0-alpha13，Substrate/PodCertificate 0.5.0-alpha2。
+- 目标 context：kind-kagent（专用 kind 集群，集群名 kagent）。
+- docker-desktop 是独立的 Docker Desktop Kubernetes；本地操作必须显式指定 context，不修改 current-context。
+- 安装/恢复入口：scripts/local-up.sh；权限验收：scripts/verify-readonly.sh。
+- Helm 配置：kagent-config/helm/values.yaml；安装器配置：kagent-install-config.yaml。
+- v1 Agent/Harness：kagent-config/crds/，api.kagent.dev/v1alpha3。
+- default-model-config 由 Helm 生成，避免另建同名清单。
+- 当前 sre-readonly Agent 仅允许诊断 kagent 命名空间；不接入写操作或跨集群权限。
+- 旧 API 文件位于 kagent-config/legacy/v0.10.1/，禁止应用到 v1 基线。
+- Secret 内容不得打印、写入报告或提交。不要使用强制覆盖或删除 Secret 的方式解决 Helm 字段冲突。
+- 更新使用完整的基线 values 与 --reset-values --server-side=false，避免复用安装器历史中的占位 Key。真实凭证仅放在独立的 kagent-deepseek-runtime Secret，不传入 Helm。变更后验证最终 RBAC，不仅检查新 Role 是否创建。
+- 历史安装总结和监控验收报告不是当前集群状态，以带日期的实测记录为准。
+- 当前控制面只通过回环地址 port-forward 使用；DeepSeek 是公网模型服务，不能宣称数据不出集群。

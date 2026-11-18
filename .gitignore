@@ -17,6 +17,8 @@ Desktop.ini
 kagent-config/secrets/api-keys.yaml
 *.key
 *.pem
+deepseek-secret.yaml
+llm-secret.yaml
 
 # Logs
 *.log
@@ -24,3 +26,7 @@ kagent-config/secrets/api-keys.yaml
 # Temp
 *.tmp
 *.bak
+
+# Local CLI binaries (download from GitHub Releases)
+kagent-darwin-arm64
+kagent-linux-*

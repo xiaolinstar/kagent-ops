@@ -1,8 +1,8 @@
 # ModelConfig - DeepSeek
-# kubectl apply -f kagent-config/crds/model-config.yaml
+# kubectl apply -f kagent-config/crds/
 
 ---
-apiVersion: api.kagent.dev/v1alpha3
+apiVersion: kagent.dev/v1alpha2
 kind: ModelConfig
 metadata:
   name: default-model-config

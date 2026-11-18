@@ -18,7 +18,8 @@ providers:
   openAI:
     provider: OpenAI
     model: "deepseek-flash"
-    apiKeySecretRef: kagent-deepseek
+    apiKey: null  # 清除安装器历史占位值；凭证仅由独立 Secret 管理
+    apiKeySecretRef: kagent-deepseek-runtime
     apiKeySecretKey: DEEPSEEK_API_KEY
     config:
       baseUrl: "https://api.deepseek.com/v1"
@@ -33,13 +34,15 @@ config:
   logging:
     level: info
   substrate:
-    apiEndpoint: "dns:///localhost:443"
-    routerUrl: "http://localhost:80"
+    apiEndpoint: "dns:///api.ate-system.svc:443"
+    routerUrl: "http://atenet-router.ate-system.svc:80"
 
 # ============================================================
 # Controller
 # ============================================================
 controller:
+  substrateClientCertificate:
+    enabled: true
   replicas: 1
   resources:
     requests:
@@ -62,12 +65,11 @@ ui:
 # ============================================================
 # Database (外部 PostgreSQL — 连接串 Secret)
 # ============================================================
-# alpha13 移除了 bundled postgres，需提前创建 kagent-postgres Secret：
-#   kubectl create secret generic kagent-postgres \
-#     --from-literal=connectionString="postgres://kagent:kagent@kagent-postgresql.kagent.svc.cluster.local:5432/kagent?sslmode=disable" \
-#     -n kagent
+# 数据库由 alpha13 CLI 安装器初始化，保留其连接 Secret 与 PodCertificate。
 database:
   postgres:
+    clientCertificate:
+      enabled: true
     connectionStringSecretRef:
       name: kagent-postgres
       key: connectionString
@@ -80,10 +82,19 @@ kmcp:
 
 kagent-tools:
   enabled: true
+  rbac:
+    create: true
+    readOnly: true
+    allowSecrets: false
+    namespaces: [kagent]
+  tools:
+    enabledTools: [k8s]
+    args: ["--read-only"]
+    loglevel: info
 
 # Grafana MCP - 启用（连接本地 Grafana）
 grafana-mcp:
-  enabled: true
+  enabled: false  # 阶段 2 接通监控后再启用
   image:
     pullPolicy: IfNotPresent
   grafana:
@@ -94,4 +105,11 @@ grafana-mcp:
 # ============================================================
 # alpha13 不再通过 chart values 控制内置 Agent 开关。
 # Agent 需通过 CRD 单独创建，升级后执行：
-#   kubectl apply -f kagent-config/crds/agents/
+#   kubectl --context kind-kagent apply -f kagent-config/crds/
+
+substrateWorkerPool:
+  create: true
+  name: kagent-default
+  replicas: 1
+  sandboxClass: gvisor
+  workerImage: ghcr.io/kagent-dev/substrate/ateom-gvisor:v0.5.0-alpha2@sha256:5869cdace628f93d39d913e41f91f2862db8bb7ca8ae2c6c756ee31015b3d719

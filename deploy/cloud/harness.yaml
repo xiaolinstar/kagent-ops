@@ -1,0 +1,14 @@
+apiVersion: api.kagent.dev/v1alpha3
+kind: Harness
+metadata:
+  name: sre-readonly
+  namespace: kagent
+spec:
+  kagent: {}
+  substrate:
+    snapshotPolicy:
+      location: gs://ate-snapshots/kagent/
+    workerPoolRef:
+      name: kagent-default
+  workload:
+    image: ghcr.io/kagent-dev/kagent/golang-adk:1.0.0-alpha13@sha256:ae01c3a6d7e0ed2e044253a26abbfb1a9426f3176363842ca9a954762c274d36

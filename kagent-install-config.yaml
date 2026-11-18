@@ -1,4 +1,10 @@
 install:
-  defaultModelProvider: deepseek
+  defaultModelProvider: OpenAI
   kagent:
-    valuesFiles: [kagent-install-values.yaml]
+    version: 1.0.0-alpha13
+    valuesFiles: [kagent-config/helm/values.yaml]
+  substrate:
+    version: 0.5.0-alpha2
+  podCertificate:
+    version: 0.5.0-alpha2
+  bundledPostgresImage: postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15

@@ -1,336 +1,81 @@
-# kagent-ops - K8s AI 运维助手配置与实践
+# kagent-ops：本地 AI 运维基线
 
-[kagent](https://kagent.dev) 的部署配置、运维指南和最佳实践，帮助你快速搭建基于大语言模型的 Kubernetes 智能运维助手。
+本项目使用 **kagent 1.0.0-alpha13**，以 Agent + Harness + Substrate 运行只读 SRE 诊断助手。当前阶段仅诊断专用 kind 集群的 `kagent` 命名空间；后续再接入业务集群、Prometheus、日志和告警。
 
-## 🎯 项目概述
+## 本地环境
 
-本仓库是 [kagent](https://github.com/kagent-dev/kagent) 的**配置与运维实践仓库**（非上游源码），包含 Helm values、监控配置、部署文档和 SRE 实践指南。kagent 是一个部署在 Kubernetes 集群中的 AI 运维助手系统，它将大语言模型（LLM）与 Kubernetes 运维工具结合，让用户可以通过自然语言完成复杂的运维任务。
+| Context | 用途 |
+| --- | --- |
+| `kind-kagent` | 专用 kind 集群，集群名 `kagent`；本项目的部署目标 |
+| `docker-desktop` | Docker Desktop 内置 Kubernetes（底层同样可使用 kind）；本阶段不修改 |
 
-### 核心特性
+所有脚本固定指定 `kind-kagent`，不会修改 kubeconfig 的 current-context。两者是独立集群，不能通过另一个集群的 Service DNS 直接访问业务。
 
-- **自然语言交互**：用日常语言描述需求，AI 自动执行运维操作
-- **多 Agent 架构**：不同 Agent 专注不同领域（K8s、PromQL、Helm、可观测性）
-- **MCP 工具集成**：通过 Model Context Protocol 集成 kubectl、Prometheus、Grafana 等工具
-- **可观测性支持**：内置 Grafana MCP，支持监控数据分析和仪表盘操作
-- **本地化部署**：完全在本地 K8s 集群运行，数据不出集群
+## 版本与配置入口
 
-## 🏗️ 架构设计
+- kagent / CRD / CLI：`1.0.0-alpha13`，不是 v1 稳定版。
+- Substrate / PodCertificate：`0.5.0-alpha2`，与现有安装一致。
+- PostgreSQL：安装器管理的 PostgreSQL 18，连接使用 Secret 与 PodCertificate。
+- 运行时：Go ADK alpha13，固定 ARM64 镜像摘要。当前使用可达的 GHCR 镜像源，见 `kagent-config/crds/harness.yaml`。
+- 唯一 Helm 配置：`kagent-config/helm/values.yaml`。
+- 唯一安装器配置：`kagent-install-config.yaml`。
+- v1 清单：`kagent-config/crds/`；ModelConfig 由 Helm 生成，不重复 apply。
+- 旧 v0.10 配置和说明：`kagent-config/legacy/`、`docs/legacy/`，仅用于历史参考。
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                      kagent-ui                          │
-│                   (Web 交互界面)                         │
-│       http://ui.kagent.localhost:8080                    │
-└──────────────────────┬──────────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────────┐
-│                  kagent-controller                       │
-│         (API Server + Agent 编排 + Session 管理)          │
-└──────────────────────┬──────────────────────────────────┘
-                       │
-        ┌──────────────┼──────────────┐
-        ▼              ▼              ▼
-┌──────────────┐ ┌──────────┐ ┌──────────────┐
-│  Agent Pods  │ │PostgreSQL│ │  MCP Tools   │
-│ (LLM 对话)   │ │ (存储)    │ │ (工具执行)    │
-└──────────────┘ └──────────┘ └──────────────┘
-        │                              │
-        ▼                              ▼
-┌──────────────────┐          ┌──────────────────┐
-│   LLM Provider   │          │   Grafana MCP    │
-│ (DeepSeek/OpenAI)│          │   (监控工具)      │
-└──────────────────┘          └──────────────────┘
-```
+## 启动与更新
 
-### 组件说明
-
-| 组件 | 作用 | 命名空间 |
-|------|------|----------|
-| **kagent-ui** | Web 交互界面 | kagent |
-| **kagent-controller** | API 服务器、Agent 编排、会话管理 | kagent |
-| **Agent Pods** | 运行 LLM 对话的独立 Pod | kagent |
-| **PostgreSQL** | 存储会话和配置数据 | kagent |
-| **kagent-tools** | 内置 MCP 工具服务 | kagent |
-| **kagent-grafana-mcp** | Grafana MCP 工具服务 | kagent |
-| **Prometheus** | 指标收集和存储 | monitoring |
-| **Grafana** | 监控可视化 | monitoring |
-
-## 🚀 快速开始
-
-### 前置条件
-
-- Kubernetes 集群（1.25+，任意发行版均可）
-- Helm 3.x
-- DeepSeek API Key（[获取地址](https://platform.deepseek.com/)）
-
-### 1. 配置 API Key
+需要 kubectl、Helm 4、Ruby 和本地 alpha13 CLI。当前仓库保存了 macOS ARM64 CLI 及 Chart 压缩包；缺少 Chart 时脚本拉取固定版本 OCI Chart。
 
 ```bash
-cp .env.example .env
-# 编辑 .env 填入真实的 DEEPSEEK_API_KEY
+./scripts/local-up.sh
 ```
 
-### 2. 部署监控栈（Prometheus + Grafana）
+脚本校验 CLI 与本地安装包摘要，恢复既有数据库和 Substrate，统一 Helm 配置，校验并创建 `sre-readonly` Agent/Harness，验证只读权限，等待运行时快照就绪。既有安装会复用独立的 `kagent-deepseek-runtime` Secret，不要求重新输入 API Key。真实 Key 不传给 Helm；安装器只收到初始化占位值，最终升级使用完整基线清除该值。
+
+全新安装需要先创建名为 `kagent` 的 kind 集群，使 `kind-kagent` context 可用，并通过环境变量提供 `DEEPSEEK_API_KEY` 后运行同一脚本。安装器负责数据库、PodCertificate 和 Substrate 的初始化。全新集群安装路径尚需单独验收，不能将既有集群恢复结果视作重建验收。
+
+## 访问与调用
+
+暂停并释放专用 kind 节点资源：`./scripts/local-stop.sh`。脚本缩容应用后停止 `kagent-control-plane` 容器，保留数据、PVC、Secret 和会话；不停止 Docker Desktop 集群。下次执行 `./scripts/local-up.sh` 会自动启动节点并恢复组件。
 
 ```bash
-# 添加 Helm 仓库
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo update
+# UI（前台保持运行）
+kubectl --context kind-kagent -n kagent port-forward svc/kagent-ui 8080:8080 --address 127.0.0.1
+# 浏览器打开 http://localhost:8080，选择 sre-readonly
 
-# 创建命名空间
-kubectl create namespace monitoring
+# CLI 控制面（另开终端并保持运行）
+kubectl --context kind-kagent -n kagent port-forward svc/kagent-controller 18083:8083 --address 127.0.0.1
 
-# 部署 kube-prometheus-stack
-helm install monitoring prometheus-community/kube-prometheus-stack \
-  -n monitoring \
-  --values kagent-config/monitoring/values.yaml
+# 创建会话，记录输出的 Session ID
+./kagent-darwin-arm64 --api-url http://127.0.0.1:18083 --gateway-url http://127.0.0.1:18083 \
+  agent session create --agent sre-readonly -o json
+
+# 用真实 Session ID 替换 SESSION_ID
+./kagent-darwin-arm64 --api-url http://127.0.0.1:18083 --gateway-url http://127.0.0.1:18083 \
+  agent invoke --session SESSION_ID --task '请调用工具列出 kagent 命名空间的 Pod，并说明是否就绪。'
 ```
 
-### 3. 部署 kagent
+## 只读边界
+
+工具服务仅注册 Kubernetes 工具，启用 `--read-only`。其 ServiceAccount 仅在 `kagent` 命名空间拥有只读 Role，不允许读取 Secret、执行容器命令或访问其他命名空间。Agent 仅绑定资源查询、describe、Pod 日志和事件四个 MCP 工具。
 
 ```bash
-# 创建命名空间和 Secret
-kubectl create namespace kagent --dry-run=client -o yaml | kubectl apply -f -
-kubectl create secret generic kagent-deepseek \
-  --from-literal=DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2) \
-  -n kagent --dry-run=client -o yaml | kubectl apply -f -
-
-# 部署 CRDs
-helm upgrade --install kagent-crds \
-  oci://ghcr.io/kagent-dev/kagent/helm/kagent-crds \
-  -n kagent --create-namespace --version 0.10.1
-
-# 部署 kagent
-helm upgrade --install kagent \
-  oci://ghcr.io/kagent-dev/kagent/helm/kagent \
-  -n kagent --version 0.10.1 --values kagent-config/helm/values.yaml
+./scripts/verify-readonly.sh
+./scripts/smoke-agent.sh  # 先启动 18083 转发；会实际调用模型及只读工具
+kubectl --context kind-kagent get pods,agents.api.kagent.dev,harnesses.api.kagent.dev -n kagent
 ```
 
-### 4. 访问服务
+本地控制面采用 insecure 模式，仅通过回环地址 port-forward 使用。模型请求发送到公网 DeepSeek，输入的诊断内容可能离开集群。不要向模型提供凭证；本地 `deepseek-secret.yaml` 已忽略，禁止提交真实 API Key。
 
-> **访问方式**：Service 统一为 ClusterIP，本地访问一律使用 `kubectl port-forward`。URL 采用 `*.localhost` 语义子域名（RFC 6761，自动解析到 127.0.0.1，无需配置 DNS）。
+## 后续阶段
 
-```bash
-# kagent UI（AI 运维助手）
-kubectl port-forward -n kagent svc/kagent-ui 8080:8080
-# 浏览器: http://ui.kagent.localhost:8080
+1. 当前阶段：统一 v1 基线、启动 Agent、验证模型对话与受限工具调用。
+2. 接入实际业务集群、Prometheus 与日志，形成有证据的诊断报告。
+3. 告警接入、去重、异步诊断与恢复归档。
+4. 独立执行服务、审批、幂等、回滚与恢复验证。
 
-# Grafana（监控面板）
-kubectl port-forward -n monitoring svc/monitoring-grafana 31080:80
-# 浏览器: http://grafana.kagent.localhost:31080
-# 账号: admin / admin
-```
+审查依据见 `docs/aiops-review-2026-10-26.md`；本次实测验收见 `docs/stage1-acceptance-2026-10-26.md`。`kagent-config/monitoring/` 保留原有监控设计，本阶段未部署。
 
-> 以上命令会持续占用终端。如需后台运行，可加 `&` 或使用多个终端窗口。
+## 云端试点
 
-## 📦 项目结构
-
-```
-kagent-ops/
-├── .env.example                    # API Key 模板
-├── .env                            # API Key（不提交到 git）
-├── .gitignore
-├── README.md                       # 本文档
-├── CLAUDE.md                       # AI 协作说明
-├── kagent-config/
-│   ├── helm/
-│   │   └── values.yaml             # kagent Helm 配置
-│   ├── monitoring/
-│   │   ├── values.yaml             # kube-prometheus-stack Helm 配置
-│   │   ├── blackbox-values.yaml    # blackbox-exporter 独立 chart 配置
-│   │   ├── beyla-values.yaml       # Beyla eBPF 零插桩 RED 配置
-│   │   ├── RUNBOOK.md              # 业务服务可观测性部署 Runbook
-│   │   ├── probes/                 # Probe CRD（drinkzen / party-helper）
-│   │   ├── prometheus-rules/       # HTTP 可用性告警规则
-│   │   └── dashboards/             # Grafana Dashboard（ConfigMap 自动加载）
-│   └── crds/
-│       ├── model-config.yaml       # ModelConfig 参考
-│       └── agents/                 # Agent CRD（AgentTemplate + Agent + Harness）
-├── docs/
-│   ├── architecture.md             # 架构设计文档
-│   ├── development.md              # 开发者文档
-│   ├── contributions.md            # 贡献计划与社区 PR
-│   └── observability/
-│       ├── observability-design.md # 业务可观测性总体设计（Phase 1 指标）
-│       └── slo-sli-error-budget.md # SLO/SLI/Error Budget 实践
-```
-
-## 🤖 Agent 说明
-
-### 已启用的 Agent
-
-| Agent | 职责 | 典型问题 |
-|-------|------|----------|
-| **k8s-agent** | 集群资源管理、Pod 状态查询、事件查看 | "查看 kagent 命名空间下所有 Pod 状态" |
-| **promql-agent** | Prometheus 查询、指标分析、告警规则编写 | "查询过去 1 小时的 CPU 使用率" |
-| **helm-agent** | Helm Chart 管理、发布/回滚操作 | "查看 kagent 的 Helm release 状态" |
-| **observability-agent** | 可观测性分析、Grafana 仪表盘操作 | "查看 Grafana 中有哪些 Dashboard" |
-
-### Agent 架构
-
-每个 Agent 由两个 CRD 资源组成：`AgentTemplate` 定义提示词与工具，`Agent` 引用模板与运行时 Harness：
-
-```yaml
-apiVersion: api.kagent.dev/v1alpha3
-kind: AgentTemplate
-metadata:
-  name: k8s-agent-template
-  namespace: kagent
-spec:
-  description: Kubernetes cluster resource management and diagnostics
-  modelConfig:
-    name: default-model-config        # 引用 LLM 配置
-  systemPrompt: |                     # 系统提示词
-    You are a Kubernetes cluster management assistant...
-  tools:                              # 绑定的 MCP 工具
-    - mcp:
-        server:
-          kind: RemoteMCPServer
-          name: kagent-tool-server
-        tools:
-          - k8s_get_resources
-          - k8s_describe_resource
----
-apiVersion: api.kagent.dev/v1alpha3
-kind: Agent
-metadata:
-  name: k8s-agent
-  namespace: kagent
-spec:
-  template:
-    ref:
-      name: k8s-agent-template        # 引用上面的模板
-  harnessRef:
-    name: kagent-go                   # 引用 Harness 运行时
-```
-
-### Agent 之间的关系
-
-```
-┌─────────────────────────────────────────────────────┐
-│                   kagent-ui                          │
-│              (用户选择哪个 Agent 对话)                │
-└───────────────────────┬─────────────────────────────┘
-                        │
-        ┌───────────────┼───────────────┐
-        ▼               ▼               ▼
-   ┌─────────┐    ┌──────────┐    ┌──────────┐
-   │ k8s-agent│    │promql-agent│   │helm-agent │
-   └────┬────┘    └─────┬────┘    └─────┬────┘
-        │               │               │
-        └───────────────┼───────────────┘
-                        ▼
-              ┌──────────────────┐
-              │  default-model   │
-              │    -config       │  ← 共用 LLM
-              └──────────────────┘
-```
-
-## ⚙️ 配置指南
-
-### 切换 LLM 模型
-
-编辑 `kagent-config/helm/values.yaml`：
-
-```yaml
-providers:
-  default: openAI
-
-  openAI:
-    provider: OpenAI
-    model: "deepseek-flash"              # 可改为 deepseek-reasoner 等
-    apiKeySecretRef: kagent-deepseek
-    apiKeySecretKey: DEEPSEEK_API_KEY
-    config:
-      baseUrl: "https://api.deepseek.com/v1"
-```
-
-支持的 Provider：
-- **OpenAI**：兼容 DeepSeek、Moonshot 等
-- **Anthropic**：Claude 系列
-- **AzureOpenAI**：Azure OpenAI 服务
-- **Ollama**：本地模型
-- **Gemini**：Google Gemini
-
-### 启用/禁用 Agent
-
-```yaml
-# 根级别配置，不是嵌套在 agents 下
-k8s-agent:
-  enabled: true
-promql-agent:
-  enabled: true
-helm-agent:
-  enabled: true
-observability-agent:
-  enabled: true
-
-# 禁用的 Agent
-istio-agent:
-  enabled: false
-argo-rollouts-agent:
-  enabled: false
-```
-
-### 外部数据库
-
-生产环境建议使用外部 PostgreSQL：
-
-```yaml
-database:
-  postgres:
-    url: "postgres://user:pass@host:5432/dbname?sslmode=disable"
-    bundled:
-      enabled: false
-```
-
-## 🔧 服务管理
-
-### 临时停止
-
-保留所有配置和数据，scale down 到 0：
-
-```bash
-kubectl scale deployment -n kagent --all --replicas=0
-```
-
-### 恢复服务
-
-```bash
-kubectl scale deployment -n kagent --all --replicas=1
-kubectl get pods -n kagent
-```
-
-### 卸载
-
-```bash
-# 卸载 kagent
-helm uninstall kagent -n kagent
-helm uninstall kagent-crds -n kagent
-kubectl delete ns kagent
-
-# 卸载监控栈
-helm uninstall monitoring -n monitoring
-kubectl delete ns monitoring
-```
-
-## 📊 状态持久化
-
-| 组件 | 存储方式 | Scale 安全性 |
-|------|---------|-------------|
-| PostgreSQL | PVC（集群默认 StorageClass） | ✅ PVC 在 scale 后保留 |
-| Agent CRDs | etcd (K8s 内置) | ✅ 不受 scale 影响 |
-| ModelConfig | etcd + Helm | ✅ 不受 scale 影响 |
-| Session 数据 | PostgreSQL | ✅ PVC 保护 |
-| Prometheus 数据 | PVC (10Gi，保留 15 天) | ✅ 重启不丢失 |
-| Grafana 配置 | ConfigMap | ✅ 不受 scale 影响 |
-
-> ⚠️ 不要通过 UI 创建 Agent，否则 scale 后可能出现 "already exists" 冲突。
-> 所有 Agent 应通过 `values.yaml` + `helm upgrade` 管理。
-
-## 🔗 参考链接
-
-- [kagent 官方文档](https://www.kagent.dev/docs)
-- [Helm 配置参考](https://www.kagent.dev/docs/kagent/resources/helm)
-- [DeepSeek API](https://platform.deepseek.com/)
-- [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack)
+独立 ECS 的准备、安装和验收步骤见 [云端部署](docs/cloud-deployment.md)。

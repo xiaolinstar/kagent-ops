@@ -1,0 +1,18 @@
+apiVersion: api.kagent.dev/v1alpha3
+kind: Harness
+metadata:
+  name: sre-readonly
+  namespace: kagent
+spec:
+  kagent: {}
+  env:
+    - name: GODEBUG
+      value: http2client=0
+  substrate:
+    snapshotPolicy:
+      location: gs://ate-snapshots/kagent/
+    workerPoolRef:
+      name: kagent-default
+  workload:
+    # 本地 Apple Silicon：镜像源提供与 GHCR 相同的 linux/arm64 manifest。
+    image: ghcr.nju.edu.cn/kagent-dev/kagent/golang-adk:1.0.0-alpha13@sha256:03c64b9ef059c472e1e151721ccc97aafd71d7b99edde05a647e64045510ddf2

@@ -1,5 +1,7 @@
 # kagent v1.0.0-alpha13 安装总结
 
+> 历史记录（2026-10-19），不是当前部署指引。现行入口为 README.md 和 scripts/local-up.sh。当前实测 Substrate 为 0.5.0-alpha2；PostgreSQL 为单 Pod 的数据库与证书 sidecar，不是主从两副本。禁止按下文删除或接管 Secret；模型凭证使用独立的 kagent-deepseek-runtime Secret。
+
 ## 安装概览
 
 **安装时间：** 2026-10-19  
@@ -171,7 +173,7 @@ export https_proxy=http://127.0.0.1:端口
 
 1. **创建 Agent CRD** (v1alpha3 格式)
    ```bash
-   kubectl apply -f kagent-config/crds/agents/ --context kind-kagent
+   kubectl apply -f agents.yaml --context kind-kagent
    ```
 
 2. **测试 Agent 对话**
