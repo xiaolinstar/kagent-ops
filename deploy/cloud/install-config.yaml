@@ -2,7 +2,8 @@ install:
   defaultModelProvider: OpenAI
   kagent:
     version: 1.0.0-alpha13
-    valuesFiles: [kagent-config/helm/values.yaml]
+    # Paths are resolved relative to this config file (deploy/cloud/).
+    valuesFiles: [../../kagent-config/helm/values.yaml]
   substrate:
     version: 0.5.0-alpha2
   podCertificate:
