@@ -1,0 +1,25 @@
+# k3s 镜像加速示例。安装到：/etc/rancher/k3s/registries.yaml
+# 然后：sudo systemctl restart k3s
+#
+# 说明：
+# - 只影响 kubelet/containerd 拉 Pod 镜像（pause、postgres、rustfs、控制面等）。
+# - 不影响 atelet 自己的 Image cache；ADK 运行时镜像请在 Harness 里写可达的 registry
+#   （见 deploy/cloud/harness.yaml 使用 ghcr.nju.edu.cn）。
+# - 不影响 helm oci://ghcr.io/... Chart；Chart 请用仓库内 kagent-*.tgz 或代理。
+
+mirrors:
+  docker.io:
+    endpoint:
+      - "https://docker.m.daocloud.io"
+      - "https://docker.1ms.run"
+  registry.k8s.io:
+    endpoint:
+      - "https://k8s.m.daocloud.io"
+  ghcr.io:
+    endpoint:
+      - "https://ghcr.nju.edu.cn"
+      - "https://ghcr.m.daocloud.io"
+  # agentgateway 暂无可靠国内镜像时，可保留直连或自行加速
+  cr.agentgateway.dev:
+    endpoint:
+      - "https://cr.agentgateway.dev"

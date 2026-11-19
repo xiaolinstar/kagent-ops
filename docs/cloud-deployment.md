@@ -4,6 +4,23 @@
 
 试点规格假设：约 8 vCPU / 16GB 内存 / **40GB 系统盘**（装完 k3s 后约有 32GB 可用即可开装）。不强制先加数据盘；装机过程记录 `df -h`，可用空间偏低或出现 `DiskPressure` 再扩容。对象存储留给后续备份，不替代本机镜像与 `local-path` PVC。
 
+## 迁移差异（为何云端会卡）
+
+| 维度 | 本地 kind（已验收） | 云端 k3s（本试点） |
+| --- | --- | --- |
+| 架构 | ARM64 | amd64 |
+| 发行版 | kind | k3s 1.37.x |
+| 沙箱 | 节点已具备 gVisor 路径 | **须自装 runsc + RuntimeClass `gvisor`** |
+| 镜像拉取 | 节点 mirror + 南大源；Harness 钉 ARM64 digest | Docker Hub / GHCR / `cr.agentgateway.dev` 易超时 |
+| 两套拉镜像路径 | containerd **与** atelet Image cache | **containerd 配 registries 不够**；atelet 按 Harness 的 image ref 自己拉 ADK |
+| HTTP/2 | atelet / Harness 需 `GODEBUG=http2client=0` | **同样必须**（见下） |
+| Helm | 可用 OCI | 建议用仓库内 `kagent-*.tgz`；`--server-side` 仅 Helm 4 |
+| Secret | 独立 `kagent-deepseek-runtime` | CLI `install` 若带 placeholder 会与手建 Secret 冲突 → 用 `helm upgrade --install` + `apiKey: null` |
+
+现场曾卡在：`ActorTemplatePending` / 曾出现 `GoldenActorCrashed`；atelet 日志典型为对  
+`golang-adk:...@sha256:ae01c3a6...` 的 `Image cache miss` 后长时间无 hit。controller 侧可能反复  
+`another operation is in progress for this ActorTemplate`（旧 revision 占用中）。**勿短时间反复改 Harness**。
+
 ## 0. 现场一次性核对（在 ECS 上）
 
 ```bash
@@ -18,65 +35,104 @@ kubectl get runtimeclass
 通过标准：
 
 - 架构 `x86_64`；server 版本 **1.37.x**
-- 存在默认 StorageClass（k3s 通常为 `local-path`）
-- 存在可用的 `gvisor` RuntimeClass（或确认安装器/文档要求的 sandbox 已就绪）
-- DeepSeek API 可出网；GHCR 能直连，或准备改用 `ghcr.nju.edu.cn`
+- 默认 StorageClass（k3s：`local-path`）
+- RuntimeClass **`gvisor`**（handler `runsc`）已冒烟
+- DeepSeek API 可出网
 
-磁盘采样点（每次记下 `df -h` 可用量）：① 本步完成后；② 镜像拉齐 / Pod Ready；③ `smoke-agent` 之后。
+磁盘采样：① 本步后；② 控制面 Pod Ready；③ Agent Ready / smoke 后。
 
-工具：kubectl、Helm 4、Ruby。从 [alpha13 Release](https://github.com/kagent-dev/kagent/releases/tag/v1.0.0-alpha13) 下载 **`kagent-linux-amd64`**，用 [cli.sha256](../deploy/cloud/cli.sha256) 校验并 `chmod +x`。
+工具：kubectl、Helm 3/4、Ruby、`kagent-linux-amd64`（摘要见 [cli.sha256](../deploy/cloud/cli.sha256)）。
 
-## 1. 把仓库与 kubeconfig 准备好
+## 1. 镜像源（装 kagent 之前做完）
 
-在 ECS 上克隆/同步本仓库（确保含 `scripts/`、`deploy/cloud/`、`kagent-config/`）。为 k3s 建专用 context 名称（示例 `kagent-ecs`），**不要**用 `kind-kagent` / `docker-desktop`。
+### 1.1 k3s containerd（Pod 镜像）
+
+将 [registries.yaml.example](../deploy/cloud/registries.yaml.example) 安装为 `/etc/rancher/k3s/registries.yaml` 后重启 k3s：
 
 ```bash
-export KAGENT_CONTEXT=kagent-ecs   # 换成你的 context 名
+sudo cp deploy/cloud/registries.yaml.example /etc/rancher/k3s/registries.yaml
+sudo systemctl restart k3s
+kubectl get nodes
+```
+
+覆盖：`docker.io`（postgres / rustfs / pause 等）、`registry.k8s.io`、`ghcr.io`。  
+`cr.agentgateway.dev`（atenet）往往仍须直连或预热，无稳定国内源时用 `ctr` 预拉。
+
+预热示例（containerd，解决 Pod `ContainerCreating`）：
+
+```bash
+sudo ctr -n k8s.io images pull docker.m.daocloud.io/library/postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+sudo ctr -n k8s.io images tag \
+  docker.m.daocloud.io/library/postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15 \
+  postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+```
+
+### 1.2 atelet（Agent golden snapshot 用的 ADK）
+
+与 containerd **不是同一缓存**。必须：
+
+1. Harness 使用可达 registry（仓库默认 [deploy/cloud/harness.yaml](../deploy/cloud/harness.yaml) 已用 `ghcr.nju.edu.cn` + **多架构** digest `ae01c3a6...`）。
+2. DaemonSet atelet 设置 `GODEBUG=http2client=0`：
+
+```bash
+kubectl -n ate-system set env daemonset/atelet GODEBUG=http2client=0
+kubectl -n ate-system rollout status daemonset/atelet --timeout=180s
+```
+
+看日志请用正确 label：`kubectl -n ate-system logs -l app=atelet`（不是 `app.kubernetes.io/name=atelet`）。
+
+### 1.3 Helm Chart
+
+优先：`helm upgrade --install kagent ./kagent-1.0.0-alpha13.tgz ...`  
+避免 `oci://ghcr.io/...` 在国内超时。Helm 3 不要加 `--server-side`。
+
+## 2. 命名空间与 Secret
+
+```bash
+export KAGENT_CONTEXT=default   # 或专用名；不要用 kind-kagent
 export KAGENT_CLI=/absolute/path/to/kagent-linux-amd64
-```
 
-## 2. 预置命名空间与 DeepSeek Secret
-
-```bash
-kubectl --context "$KAGENT_CONTEXT" create namespace kagent --dry-run=client -o yaml | kubectl --context "$KAGENT_CONTEXT" apply -f -
-```
-
-按 `llm-secret-example.yaml` 在目标集群创建 `kagent-deepseek-runtime`（键名 `DEEPSEEK_API_KEY`）。真实 Key 不进 Helm、不提交 Git。可用：
-
-```bash
+kubectl --context "$KAGENT_CONTEXT" create namespace kagent --dry-run=client -o yaml \
+  | kubectl --context "$KAGENT_CONTEXT" apply -f -
 kubectl --context "$KAGENT_CONTEXT" -n kagent create secret generic kagent-deepseek-runtime \
   --from-literal=DEEPSEEK_API_KEY='你的Key'
 ```
 
-## 3. 镜像策略（按需）
+## 3. 安装顺序（手装摘要）
 
-- 默认：`deploy/cloud/harness.yaml` 与 Helm values 使用官方 `ghcr.io` 多架构摘要（适合 amd64）。
-- 直连失败：把相关镜像主机名改为 `ghcr.nju.edu.cn`，**保留 amd64/多架构正确 digest**；禁止套用本地 ARM64 平台摘要（`kagent-config/crds/harness.yaml` 里那条）。
-- 走南大源若遇 HTTP/2 问题：Harness 增加 `GODEBUG=http2client=0`（与本地经验一致）。
-- Helm Chart 的 `oci://ghcr.io/...` 与容器镜像不是同一条路径；Chart 拉不下时改用仓库内已有 `kagent-*-1.0.0-alpha13.tgz` 或临时代理（需改安装命令时再动脚本）。
+1. gVisor RuntimeClass 冒烟通过。  
+2. registries +（安装器跑起来后）atelet `GODEBUG`。  
+3. `OPENAI_API_KEY=bootstrap-placeholder "$KAGENT_CLI" --config deploy/cloud/install-config.yaml install`  
+   - `valuesFiles` 相对 `deploy/cloud/` 解析（已用 `../../kagent-config/helm/values.yaml`）。  
+   - 若报 Secret 与 Helm 所有权冲突：**不要删 Secret**；改用  
+     `helm upgrade --install kagent ./kagent-1.0.0-alpha13.tgz -n kagent --reset-values -f kagent-config/helm/values.yaml --wait`  
+4. `kubectl apply -f deploy/cloud/harness.yaml -f kagent-config/crds/agents.yaml`  
+5. 等 Agent Ready（首次 golden 依赖 atelet 拉齐 ADK，可能很长）。日志出现 `Image cache hit` 对 golang-adk 后再期望 Ready。
 
-## 4. 安装
+也可使用 `./scripts/cloud-install.sh`（需 Linux + 已校验 CLI）；Helm 4 的 `--server-side=false` 在 Helm 3 上请手装时省略。
 
-在仓库根目录：
-
-```bash
-./scripts/cloud-install.sh "$KAGENT_CONTEXT"
-```
-
-脚本会：校验 Linux CLI 摘要与 K8s 1.37.x、确认 Secret 存在、调用安装器初始化依赖、按基线 values 升级 Helm、跑只读权限检查、只 apply 云端 Harness + `sre-readonly` Agent，并等待 Agent Ready。
-
-## 5. 验收
-
-1. 查默认 StorageClass、PG/RustFS PVC Bound、`kagent` / `ate-system` Pod Ready；记录 `df -h`。
-2. `KAGENT_CONTEXT="$KAGENT_CONTEXT" ./scripts/verify-readonly.sh`
-3. 在 ECS 上：
+## 4. 访问（insecure，仅回环）
 
 ```bash
-kubectl --context "$KAGENT_CONTEXT" -n kagent port-forward svc/kagent-controller 18083:8083 --address 127.0.0.1
+kubectl -n kagent port-forward svc/kagent-ui 8080:8080 --address 127.0.0.1
+kubectl -n kagent port-forward svc/kagent-controller 18083:8083 --address 127.0.0.1
 ```
 
-另开终端：`KAGENT_CLI="$KAGENT_CLI" ./scripts/smoke-agent.sh`（核验模型回复与受限 MCP 调用）。UI 同理只做回环转发；**不要**把 8080/8083 对公网暴露（当前 `auth.mode: insecure`）。
+本机经 SSH：`ssh -L 8080:127.0.0.1:8080 -L 18083:127.0.0.1:18083 user@ECS`。  
+浏览器 `http://127.0.0.1:8080`，选 `sre-readonly`。**不要公网暴露。**
 
-4. 正常重启节点后再查会话、PVC、Agent Ready，并记录 CPU/内存/磁盘峰值。
+## 5. 命名空间一览
 
-`kagent-config/crds/agents/` 下其它 Agent 本阶段不部署，须单独验收后再纳入。
+| 命名空间 | 作用 |
+| --- | --- |
+| `kagent` | controller / UI / tools / PG / Agent / Harness / WorkerPool |
+| `ate-system` | Substrate API、atelet、router/egress、rustfs |
+| `podcertificate-controller-system` | 证书 |
+| `kube-system` | k3s 系统组件 |
+
+## 6. 验收与未完成项
+
+- `verify-readonly`、port-forward 后 `smoke-agent`。  
+- **当前现场未完成项：** Agent 仍可能 `ActorTemplatePending`（atelet 拉 ADK / 旧 template 占用）。续作时：确认 Harness 为南大多架构 digest、atelet `GODEBUG`、只观察 `app=atelet` 的 Image cache 日志；避免频繁改 Harness；必要时在确认无会话后 `delete agent` 再 apply 一次以甩掉卡死的 revision。
+
+`kagent-config/crds/agents/` 下其它 Agent 本阶段不部署。

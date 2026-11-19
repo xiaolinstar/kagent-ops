@@ -31,9 +31,24 @@ kubectl get secret kagent-deepseek-runtime -n kagent -o go-template='{{if index 
 if ! helm status kagent -n kagent >/dev/null 2>&1; then
   OPENAI_API_KEY=bootstrap-placeholder "$KAGENT_CLI" --config deploy/cloud/install-config.yaml install
 fi
-helm upgrade kagent oci://ghcr.io/kagent-dev/kagent/helm/kagent -n kagent \
-  --version 1.0.0-alpha13 --reset-values --server-side=false \
-  -f kagent-config/helm/values.yaml --wait --timeout 5m
+# Prefer local chart on air-gapped / slow-GHCR hosts; fall back to OCI.
+if [[ -f kagent-1.0.0-alpha13.tgz ]]; then
+  helm upgrade --install kagent ./kagent-1.0.0-alpha13.tgz -n kagent \
+    --reset-values -f kagent-config/helm/values.yaml --wait --timeout 15m
+else
+  helm_args=(upgrade --install kagent oci://ghcr.io/kagent-dev/kagent/helm/kagent -n kagent
+    --version 1.0.0-alpha13 --reset-values -f kagent-config/helm/values.yaml --wait --timeout 15m)
+  # Helm 4 supports --server-side=false; Helm 3 defaults to client-side merge.
+  if helm upgrade --help 2>/dev/null | grep -q -- '--server-side'; then
+    helm_args+=(--server-side=false)
+  fi
+  helm "${helm_args[@]}"
+fi
+
+# atelet pulls ADK layers itself; HTTP/2 against mirrors often breaks without this.
+kubectl -n ate-system set env daemonset/atelet GODEBUG=http2client=0
+kubectl -n ate-system rollout status daemonset/atelet --timeout=180s
+
 KAGENT_CONTEXT="$context" ./scripts/verify-readonly.sh
 
 kubectl apply --dry-run=server -f deploy/cloud/harness.yaml -f kagent-config/crds/agents.yaml
