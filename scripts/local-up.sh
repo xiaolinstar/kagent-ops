@@ -28,7 +28,10 @@ if command -v docker >/dev/null && docker inspect kagent-control-plane >/dev/nul
 fi
 kubectl --context "$context" get namespace kube-system >/dev/null
 architecture="$(kubectl --context "$context" get nodes -o jsonpath='{.items[*].status.nodeInfo.architecture}')"
-[[ "$architecture" == arm64 ]] || { echo 'This local Harness is pinned to a single ARM64 node.' >&2; exit 1; }
+case " $architecture " in
+  *" arm64 "*|*" amd64 "*) ;;
+  *) echo "Unsupported node architecture: $architecture (need arm64 or amd64)." >&2; exit 1 ;;
+esac
 # CLI has no --context flag: use a temporary single-context kubeconfig.
 # This does not change ~/.kube/config or its current-context.
 umask 077

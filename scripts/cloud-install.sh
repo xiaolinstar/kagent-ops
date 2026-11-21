@@ -13,11 +13,13 @@ esac
 expected="$(awk -v file="$cli_name" '$2 == file { print $1 }' deploy/cloud/cli.sha256)"
 actual="$(sha256sum "$KAGENT_CLI" | awk '{print $1}')"
 [[ "$actual" == "$expected" ]] || { echo 'CLI checksum mismatch' >&2; exit 1; }
-"$KAGENT_CLI" --config deploy/cloud/install-config.yaml config validate
+# Shared installer config at repo root (same as local-up).
+"$KAGENT_CLI" --config kagent-install-config.yaml config validate
 
 umask 077
 cloud_kubeconfig="$(mktemp)"
 trap 'rm -f "$cloud_kubeconfig"' EXIT
+# Write minify BEFORE exporting KUBECONFIG (empty tempfile breaks kubectl → localhost:8080).
 kubectl --context "$context" config view --raw --flatten --minify > "$cloud_kubeconfig"
 export KUBECONFIG="$cloud_kubeconfig"
 kubectl get nodes
@@ -29,20 +31,20 @@ kubectl get secret kagent-deepseek-runtime -n kagent -o go-template='{{if index 
 
 # The installer manages PostgreSQL and Substrate. Only a placeholder goes into Helm.
 if ! helm status kagent -n kagent >/dev/null 2>&1; then
-  OPENAI_API_KEY=bootstrap-placeholder "$KAGENT_CLI" --config deploy/cloud/install-config.yaml install
+  OPENAI_API_KEY=bootstrap-placeholder "$KAGENT_CLI" --config kagent-install-config.yaml install
 fi
 # Prefer local chart on air-gapped / slow-GHCR hosts; fall back to OCI.
+helm_extra=()
+if helm upgrade --help 2>/dev/null | grep -q -- '--server-side'; then
+  helm_extra+=(--server-side=false)
+fi
 if [[ -f kagent-1.0.0-alpha13.tgz ]]; then
   helm upgrade --install kagent ./kagent-1.0.0-alpha13.tgz -n kagent \
-    --reset-values -f kagent-config/helm/values.yaml --wait --timeout 15m
+    --reset-values "${helm_extra[@]}" -f kagent-config/helm/values.yaml --wait --timeout 15m
 else
-  helm_args=(upgrade --install kagent oci://ghcr.io/kagent-dev/kagent/helm/kagent -n kagent
-    --version 1.0.0-alpha13 --reset-values -f kagent-config/helm/values.yaml --wait --timeout 15m)
-  # Helm 4 supports --server-side=false; Helm 3 defaults to client-side merge.
-  if helm upgrade --help 2>/dev/null | grep -q -- '--server-side'; then
-    helm_args+=(--server-side=false)
-  fi
-  helm "${helm_args[@]}"
+  helm upgrade --install kagent oci://ghcr.io/kagent-dev/kagent/helm/kagent -n kagent \
+    --version 1.0.0-alpha13 --reset-values "${helm_extra[@]}" \
+    -f kagent-config/helm/values.yaml --wait --timeout 15m
 fi
 
 # atelet pulls ADK layers itself; HTTP/2 against mirrors often breaks without this.
@@ -51,6 +53,7 @@ kubectl -n ate-system rollout status daemonset/atelet --timeout=180s
 
 KAGENT_CONTEXT="$context" ./scripts/verify-readonly.sh
 
-kubectl apply --dry-run=server -f deploy/cloud/harness.yaml -f kagent-config/crds/agents.yaml
-kubectl apply -f deploy/cloud/harness.yaml -f kagent-config/crds/agents.yaml
+# Shared Agent + Harness (multi-arch). Do not apply crds/agents/ extras here.
+kubectl apply --dry-run=server -f kagent-config/crds/harness.yaml -f kagent-config/crds/agents.yaml
+kubectl apply -f kagent-config/crds/harness.yaml -f kagent-config/crds/agents.yaml
 kubectl wait -n kagent --for=condition=Ready agent/sre-readonly --timeout=600s

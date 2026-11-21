@@ -1,18 +1,18 @@
-# v1 Agent 创建指南
+# 创建 Agent（v1alpha3）
 
-当前固定使用 kagent 1.0.0-alpha13。实际部署入口是 `scripts/local-up.sh`，使用 `kagent-config/crds/agents.yaml` 与 `harness.yaml`；README.md 包含调用命令。
+部署源（本地与云端相同）：
 
-Agent 必需 `spec.harnessRef` 和 `spec.template`。本项目采用 inline template，引用 Helm 生成的 `default-model-config`。MCP 引用必须包含 `kind: RemoteMCPServer`、`name: kagent-tool-server`，alpha13 要求省略 apiGroup。显式 tools 列表限定可见工具；空列表会暴露该 Server 的全部工具。
+- Agent：`kagent-config/crds/agents.yaml`
+- Harness：`kagent-config/crds/harness.yaml`（南大源 + 多架构 digest + `GODEBUG`）
+- 总览：[docs/overview.md](docs/overview.md)
 
-Harness 必需 substrate、workload，以及 kagent/codex/claude/byo 中的一种运行时。当前使用 Go ADK、gVisor WorkerPool、RustFS 快照桶。镜像必须包含有效 sha256 摘要；本地 ARM64 镜像源及摘要已固定在实际清单中。snapshotPolicy.location 使用 gs://ate-snapshots/kagent/，存储后端来自 Substrate；不能用字面量 local 替代桶路径。
-
-先执行服务端校验再部署：
+Harness 需要 substrate、workload 与一种运行时（当前 Go ADK）。`snapshotPolicy.location` 使用 `gs://ate-snapshots/kagent/`。
 
 ```bash
-kubectl --context kind-kagent apply --dry-run=server -f kagent-config/crds/
-./scripts/local-up.sh
+kubectl -n kagent get agents.api.kagent.dev,harnesses.api.kagent.dev
+kubectl -n kagent describe agent sre-readonly
 ```
 
-根目录 agent-example.yaml / harness-example.yaml、test-agent.yaml / test-harness.yaml 是完整的示例副本，名称为 test-agent / simple-harness，不是部署源。不要在实际基线上重复创建它们；修改实际配置请编辑 kagent-config/crds/。
+Ready 依赖模型/工具引用、Harness 兼容性与 **golden snapshot**（atelet 拉齐 workload 镜像）。CLI：先 `session create`，再 `invoke --session`。
 
-Agent Ready 取决于模型和工具引用解析、Harness 兼容性及运行时 golden snapshot，不应只根据 Pod Running 判断。CLI 调用方式为先创建 Session，再使用 `agent invoke --session ID --task ...`；CLI 不接受 `invoke AGENT_NAME --context`。
+`kagent-config/crds/agents/` 下其它 Agent 须单独验收后再部署。

@@ -1,7 +1,7 @@
 # 可观测性 Phase 1 验收报告
 
 > 验收时间：2026-10-11（本地集群，monitoring 命名空间）
-> 验收依据：`docs/observability/observability-design.md` §2.2 交付物与验收标准
+> 验收依据：`docs/legacy/observability/observability-design.md` §2.2 交付物与验收标准
 
 ## 一、验收结果总览
 

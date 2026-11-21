@@ -1,6 +1,6 @@
-# v1 本地架构
+# v1 架构
 
-目标为独立的 `kind-kagent` context。Docker Desktop 的 `docker-desktop` context 是另一个集群，本阶段不接入。
+概念与依赖总览见 [overview.md](overview.md)。下文以本地 `kind-kagent` 为主；云端为独立 k3s context，组件链路相同。Docker Desktop 的 `docker-desktop` context 是另一个集群，本阶段不接入。
 
 ```text
 本地 UI / CLI（127.0.0.1 port-forward）

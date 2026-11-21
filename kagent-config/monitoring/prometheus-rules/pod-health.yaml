@@ -1,6 +1,6 @@
 # Prometheus 告警规则 - Pod 健康（重启风暴 / OOM）
 # 指标来源：kube-state-metrics（kube-prometheus-stack 自带）
-# 依据：docs/observability/observability-design.md §2.3 告警覆盖
+# 依据：docs/legacy/observability/observability-design.md §2.3 告警覆盖（本阶段未部署）
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:

@@ -6,6 +6,7 @@ metadata:
 spec:
   kagent: {}
   env:
+    # atelet 经镜像站拉 OCI 层时 HTTP/2 易 PROTOCOL_ERROR（本地/云端共通）
     - name: GODEBUG
       value: http2client=0
   substrate:
@@ -14,5 +15,6 @@ spec:
     workerPoolRef:
       name: kagent-default
   workload:
-    # 本地 Apple Silicon：镜像源提供与 GHCR 相同的 linux/arm64 manifest。
-    image: ghcr.nju.edu.cn/kagent-dev/kagent/golang-adk:1.0.0-alpha13@sha256:03c64b9ef059c472e1e151721ccc97aafd71d7b99edde05a647e64045510ddf2
+    # 通用方案：南大 GHCR 镜像站 + 官方多架构 index digest（linux/amd64 与 linux/arm64）。
+    # atelet 按此 ref 自建 Image cache；仅 ctr 进 containerd 不够。
+    image: ghcr.nju.edu.cn/kagent-dev/kagent/golang-adk:1.0.0-alpha13@sha256:ae01c3a6d7e0ed2e044253a26abbfb1a9426f3176363842ca9a954762c274d36
