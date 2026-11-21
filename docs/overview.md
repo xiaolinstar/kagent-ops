@@ -13,7 +13,7 @@
 5. [阶段 1 验收](stage1-acceptance-2026-10-26.md)  
 6. 改 Agent：[development.md](development.md)、[AGENT-CREATION-GUIDE.md](../AGENT-CREATION-GUIDE.md)
 
-协作红线：[CLAUDE.md](../CLAUDE.md)。`docs/legacy/` 与监控目录不是现行状态。
+协作红线：[CLAUDE.md](../CLAUDE.md)。监控目录 `kagent-config/monitoring/` 本阶段未部署。
 
 ## 核心概念
 
@@ -63,10 +63,3 @@
 | gVisor | 环境已通 | 须自装 runsc + RuntimeClass `gvisor` |
 | 镜像加速 | kind hosts.toml | `/etc/rancher/k3s/registries.yaml` |
 | 模型 / Secret | 同一约定 | 同一约定 |
-
-## 文档目录
-
-| 路径 | 现行 |
-| --- | --- |
-| `docs/overview.md` 等现行文档 | ✅ |
-| `docs/legacy/`、`kagent-config/legacy/`、`kagent-config/monitoring/` | ❌ |

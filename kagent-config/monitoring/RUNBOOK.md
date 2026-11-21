@@ -217,4 +217,4 @@ kubectl scale deploy party-helper-api -n party-helper --replicas=1
 - [Blackbox Exporter 配置](https://github.com/prometheus/blackbox_exporter/blob/master/CONFIGURATION.md)
 - [prometheus-blackbox-exporter chart](https://github.com/prometheus-community/helm-charts/tree/main/charts/prometheus-blackbox-exporter)
 - [Grafana Beyla](https://grafana.com/docs/beyla/latest/)
-- [总体设计文档（已归档）](../../docs/legacy/observability/observability-design.md)
+- 总体设计文档已从仓库删除，需要时查 git 历史

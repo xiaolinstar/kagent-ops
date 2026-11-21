@@ -16,4 +16,4 @@ Agent 使用 `api.kagent.dev/v1alpha3`，行为位于 `spec.template.inline`，�
 
 ModelConfig 由 Helm 的 providers 配置生成；模型凭证通过既有 Secret 引用。MCP Agent 白名单、工具只读模式、Kubernetes Role 三层共同限定操作。当前未启用 Prometheus/Grafana 工具，未部署告警入口。
 
-完整安装与验证命令见根目录 README.md；历史 v0.10 架构位于 docs/legacy/。
+完整安装与验证命令见根目录 README.md。

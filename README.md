@@ -19,7 +19,7 @@
 - 安装器：`kagent-install-config.yaml`
 - Agent / Harness：`kagent-config/crds/agents.yaml`、`harness.yaml`
 - 版本：kagent alpha13；Substrate / PodCertificate 0.5.0-alpha2
-- 历史：`docs/legacy/`、`kagent-config/legacy/`（禁止当现行 apply）
+- 旧 API 清单：`kagent-config/legacy/`（禁止 apply；旧文档已删，见 git 历史）
 
 ## 本地
 

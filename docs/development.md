@@ -24,4 +24,4 @@ kubectl --context kind-kagent logs daemonset/atelet -n ate-system --tail=30
 
 日志可能包含工具数据，分享前需审查脱敏。不要输出 Secret 或完整 Helm values；安装器可能在 Helm release 历史中保存模型凭证。网络排查需区分宿主机、kind 节点与沙箱：宿主机可访问 GHCR 不代表 atelet 可访问。
 
-不使用旧目录的 v1alpha2 资源。Harness 为多架构通用清单（`kagent-config/crds/harness.yaml`）；节点可为 arm64 或 amd64。历史开发文档位于 docs/legacy/development-v0.10.md。
+不使用旧目录的 v1alpha2 资源。Harness 为多架构通用清单（`kagent-config/crds/harness.yaml`）；节点可为 arm64 或 amd64。
